@@ -1,0 +1,12 @@
+{
+  "name": "entwining-mods",
+  "description": "Claude Code mods by Entwining",
+  "owner": { "name": "Entwining" },
+  "plugins": [
+    {
+      "name": "preallow",
+      "source": "./plugins/preallow",
+      "description": "Skips the auto-mode classifier for sandboxed read-only commands and for pushes and merges your own messages authorized"
+    }
+  ]
+}

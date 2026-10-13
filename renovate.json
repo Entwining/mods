@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "schedule:weekly"],
+  "timezone": "Asia/Singapore",
+  "description": [
+    "main has no required status checks, so platformAutomerge stays false and Renovate waits for PR checks before merging.",
+    "This repository writes type-prefixed commit subjects itself, so Renovate follows the same convention."
+  ],
+  "semanticCommits": "enabled",
+  "updateNotScheduled": false,
+  "platformAutomerge": false,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Group and automerge non-major dependency updates after checks pass.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "Routine dependencies",
+      "automerge": true
+    },
+    {
+      "description": "The engine package is the hook API the tests run against; review each engine upgrade separately.",
+      "matchPackageNames": ["@anthropic-ai/claude-code"],
+      "groupName": null,
+      "automerge": false
+    }
+  ]
+}

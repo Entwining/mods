@@ -1,0 +1,21 @@
+{
+  "name": "mods",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bun run fmt:check && bun run lint && bun run validate && bun run test",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "validate": "claude plugin validate . && claude plugin validate plugins/preallow",
+    "test": "claude plugin test plugins/preallow",
+    "typecheck": "tsc -p plugins/preallow"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.296",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "bun@1.4.3"
+}
