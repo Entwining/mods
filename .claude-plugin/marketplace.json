@@ -6,7 +6,7 @@
     {
       "name": "preallow",
       "source": "./plugins/preallow",
-      "description": "Skips the auto-mode classifier for sandboxed read-only commands and for pushes and merges your own messages authorized"
+      "description": "Skips the auto-mode classifier for the steps of the task you gave: a model judge allows what is reversible or what you explicitly asked for"
     }
   ]
 }

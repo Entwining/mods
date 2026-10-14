@@ -2,9 +2,9 @@
 
 Claude Code plugins built on function hooks, published as the `entwining-mods` marketplace.
 
-| Mod                          | What it does                                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [preallow](plugins/preallow) | In auto mode, runs sandboxed read-only commands and the pushes and merges your own messages authorized without asking the classifier |
+| Mod                          | What it does                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [preallow](plugins/preallow) | In auto mode, a model judge runs the steps of your task without the classifier, leaving irreversible effects you did not explicitly ask for to it |
 
 ## Install
 

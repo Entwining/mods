@@ -1,143 +1,167 @@
 import { describe, expect, mock, test } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
 import type { On, ToolCheckResult } from 'claude-code';
+import { JUDGE_SYSTEM } from '../hooks/judge.ts';
 
 type World = {
   core: ToolCheckResult;
-  sandbox: { enabled?: boolean; excludedCommands?: string[] };
-  isShellPinned: boolean;
+  // The judge's reply; undefined answers no text, as an API error does.
+  // Queued replies are given first, one per model call.
   reply: string | undefined;
-  modelCalls: number;
-  modelPrompts: string[];
-  toasts: string[];
+  replies: Array<string | undefined>;
+  modelFails: boolean;
+  modelCalls: Array<{
+    model: string;
+    effort?: string;
+    system: string;
+    prompt: string;
+    timeoutMs?: number;
+  }>;
+  // Each subagent's loop, by agent id; without one, the main loop's.
+  agents: Record<string, Array<{ role: 'user' | 'assistant'; text: string }>>;
   files: Map<string, string>;
-  callFails: boolean;
-  callDenied: boolean;
+  // Answers to `$.process.run`, by the arguments after git's fixed options;
+  // anything else exits 0 with no output.
+  git: Record<string, { exitCode: number; stdout: string }>;
   // Whether the classifier lets a call the check asked about run.
   classifierAllows: boolean;
+  // Whether the engine refuses a hook's allow, as for a tool only the
+  // classifier may allow.
+  engineRefuses: boolean;
   dropsPrompt: boolean;
-  // Holds the next model call's answer until it resolves.
-  gate: Promise<unknown> | undefined;
-  output: string;
+  callFails: boolean;
+  // The tool's output as the model reads it; undefined for a result a hook
+  // gave, which carries no text.
+  output: string | undefined;
   // The tool's own record, when it differs from the output text.
   record: unknown;
-  // Repository lookups that differ from GIT.
-  git: Record<string, string>;
-  // Directories holding the repository.
-  repoDirs: string[];
+  // What the model reads beside the result.
+  context: string[] | undefined;
   ran: number;
-  // Resolves once the session's log holds `count` lines.
-  logged: (count: number) => Promise<unknown[]>;
+  sessionId: string;
+  // The plugin's store, in insertion order, and how many characters of JSON
+  // it takes before it refuses a write.
+  store: Map<string, unknown>;
+  storeLimit: number;
+  // Awaited by every store write before it lands.
+  writeGate: (() => Promise<void>) | undefined;
+  // Resolves once the session's log, or the part at `path`, holds `count` lines.
+  logged: (count: number, path?: string) => Promise<Array<Record<string, unknown>>>;
 };
 
-const GIT: Record<string, string> = {
-  'git symbolic-ref --quiet --short HEAD': 'feature',
-  'git config --get branch.feature.remote': 'origin',
-  'git remote get-url --push --all origin': 'git@github.com:o/r.git',
-  'git symbolic-ref --quiet --short refs/remotes/origin/HEAD': 'origin/main',
-  'git show-ref --verify --quiet refs/heads/feature': '',
-  'git show-ref --verify --quiet refs/heads/other': '',
-};
-
-const PUSH_GRANT = JSON.stringify({
-  grants: [
-    {
-      class: 'push',
-      repo: null,
-      branch: 'feature',
-      number: null,
-      tag: null,
-      oneShot: true,
-      namedBy: 'user',
-      quote: 'push feature',
-    },
-  ],
-});
-const PLAN_PUSH_GRANT = PUSH_GRANT.replace('"user"', '"plan"');
+const ALLOW = JSON.stringify({ reason: 'a reversible step of the task', verdict: 'allow' });
+const REVIEW = JSON.stringify({ reason: 'sends a message nobody asked for', verdict: 'review' });
 // Built at run time, so no scanner takes the source for a leaked token.
 const FAKE_TOKEN = `ghp_${'x'.repeat(36)}`;
 const LOG = '/home/u/.claude/preallow/s1.jsonl';
+const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
+const REFUSAL =
+  "Only the auto-mode classifier can allow mcp__srv__handoff: an allow of type 'hook' is not the classifier's verdict";
+const DENIAL =
+  "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Synthetic]. If you have other tasks that don't depend on this action, continue working on those.";
 
-// Everything beneath the plugin: the engine's own decision, a repository on
-// branch `feature` of o/r, the extraction model, and an in-memory log folder.
-// A tool call asks for its permission under its own id, as a session does
-// beneath every plugin's `tool.call` hook, and runs only when allowed; a
-// `callDenied` world denies it after the check, as a hook above core would.
+// Everything beneath the plugin: the engine's own decision, the judge model,
+// subagent transcripts, and an in-memory log folder. A tool call asks for its
+// permission under its own id, as a session does beneath every plugin's
+// `tool.call` hook; an ask the classifier denies comes back as the error text
+// the core reports, with no `deny` field.
 function world($: Engine, on: On, partial: Partial<World> = {}): World {
-  const waiters: Array<[number, (lines: unknown[]) => void]> = [];
-  const lines = () =>
-    (w.files.get(LOG) ?? '')
+  const waiters: Array<[number, string, (lines: Array<Record<string, unknown>>) => void]> = [];
+  const lines = (path: string) =>
+    (w.files.get(path) ?? '')
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map((line) => JSON.parse(line));
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
   const w: World = {
     core: { decision: 'ask' },
-    sandbox: { enabled: true, excludedCommands: ['git:*', 'docker:*', 'jq:*'] },
-    isShellPinned: true,
-    reply: undefined,
-    modelCalls: 0,
-    modelPrompts: [],
-    toasts: [],
+    reply: ALLOW,
+    replies: [],
+    modelFails: false,
+    modelCalls: [],
+    agents: {},
     files: new Map(),
-    callFails: false,
-    callDenied: false,
+    git: {},
     classifierAllows: false,
+    engineRefuses: false,
     dropsPrompt: false,
-    gate: undefined,
+    callFails: false,
     output: 'ok',
     record: undefined,
-    git: {},
-    repoDirs: ['/repo'],
+    context: undefined,
     ran: 0,
-    logged: (count) =>
+    sessionId: 's1',
+    store: new Map(),
+    storeLimit: 4 * 1024 * 1024,
+    writeGate: undefined,
+    logged: (count, path = LOG) =>
       new Promise((resolve) =>
-        lines().length >= count ? resolve(lines()) : waiters.push([count, resolve]),
+        lines(path).length >= count ? resolve(lines(path)) : waiters.push([count, path, resolve]),
       ),
     ...partial,
   };
-  mock.env(on, {
-    HOME: '/home/u',
-    ...(w.isShellPinned ? { CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR: '1' } : {}),
-  });
+  mock.env(on, { HOME: '/home/u' });
   on('classic.UserPromptSubmit', async () => ({}));
   on('classic.SubagentStart', async () => ({}));
-  on('settings.read', async () => ({ value: { sandbox: w.sandbox } }) as never);
   on('tool.check', async () => w.core);
-  on('session.cwd', async () => ({ value: '/repo' }));
-  on('session.id', async () => ({ value: 's1' }));
-  on(
-    'session.repo',
-    async () =>
-      ({
-        value: { root: '/repo', remote: 'git@github.com:o/r.git', internal: false, name: 'r' },
-      }) as never,
-  );
-  on('process.run', async (_$, e) => {
-    const stdout = w.repoDirs.includes(e.init?.cwd ?? '')
-      ? { ...GIT, ...w.git }[e.argv.join(' ')]
-      : undefined;
+  on('session.id', async () => ({ value: w.sessionId }));
+  on('store.get', async (_$, e) => ({ value: w.store.get(e.key) }) as never);
+  on('store.set', async (_$, e) => {
+    await w.writeGate?.();
+    const next = new Map(w.store).set(e.key, e.value);
+    if (JSON.stringify(Object.fromEntries(next)).length > w.storeLimit)
+      throw new Error('store over its limit');
+    w.store = next;
+    return { value: undefined } as never;
+  });
+  on('store.delete', async (_$, e) => {
+    w.store.delete(e.key);
+    return { value: undefined } as never;
+  });
+  on('store.keys', async () => ({ value: [...w.store.keys()] }) as never);
+  on('session.messages', async (_$, e) => {
+    const { agentId } = (e ?? {}) as { agentId?: string };
+    const rows =
+      agentId === undefined
+        ? [{ role: 'user' as const, text: 'the main conversation' }]
+        : w.agents[agentId];
     return {
-      value: { exitCode: stdout === undefined ? 1 : 0, stdout: stdout ?? '', stderr: '' },
+      value:
+        rows === undefined
+          ? { deny: 'unknown agent' }
+          : rows.map((row) => ({ ...row, toolUses: [] })),
     } as never;
   });
   on('model.complete', async (_$, e) => {
-    w.modelCalls++;
-    w.modelPrompts.push((e as { prompt: string }).prompt);
-    const reply = w.reply;
-    const gate = w.gate;
-    w.gate = undefined;
-    await gate;
+    const { model, effort, system, prompt, timeoutMs } = e as {
+      model: string;
+      effort?: string;
+      system: string;
+      prompt: string;
+      timeoutMs?: number;
+    };
+    w.modelCalls.push({ model, effort, system, prompt, timeoutMs });
+    if (w.modelFails) return { deny: 'model unavailable' } as never;
+    const reply = w.replies.length > 0 ? w.replies.shift() : w.reply;
     return {
       value:
         reply === undefined
-          ? { isAnswered: false, reason: 'error' }
+          ? {
+              isAnswered: false,
+              reason: 'api-error',
+              error: 'invalid_request',
+              status: 400,
+              usage: {},
+            }
           : { isAnswered: true, text: reply, usage: {} },
     } as never;
   });
-  on('ui.toast', async (_$, e) => {
-    w.toasts.push(e.text);
-    return { value: undefined } as never;
+  on('session.cwd', async () => ({ value: '/w' }) as never);
+  on('session.usage', async () => ({ value: { startedAt: 0 } }) as never);
+  on('process.run', async (_$, e) => {
+    const { argv } = e as { argv: readonly string[] };
+    const answer = w.git[argv.slice(7).join(' ')] ?? { exitCode: 0, stdout: '' };
+    return { value: { ...answer, stderr: '', isStdoutTruncated: false } } as never;
   });
   on('fs.exists', async (_$, e) => ({ value: w.files.has(e.path) }));
   on('fs.read', async (_$, e) => {
@@ -151,624 +175,576 @@ function world($: Engine, on: On, partial: Partial<World> = {}): World {
   );
   on('fs.write', async (_$, e) => {
     w.files.set(e.path, e.text);
-    for (const waiter of waiters.filter(([count]) => lines().length >= count)) {
+    for (const waiter of waiters.filter(([count, path]) => lines(path).length >= count)) {
       waiters.splice(waiters.indexOf(waiter), 1);
-      waiter[1](lines());
+      waiter[2](lines(waiter[1]));
     }
     return { value: undefined } as never;
   });
   on('prompt.submit', async (_$, e) =>
     w.dropsPrompt ? { drop: 'blocked beneath' } : { text: e.text },
   );
-  on('turn.complete', async (_$, e) => ({ text: e.answer }));
   on('session.end', async () => ({ sessionId: 's1' }) as never);
   on('tool.call', async (_$, e) => {
-    const { tool, tool_use_id, ...input } = e as { tool: string; tool_use_id: string };
-    const { decision } = await $.tool.check({ tool, input, tool_use_id } as never);
-    if (decision !== 'allow' && !(decision === 'ask' && w.classifierAllows))
-      return { deny: decision } as never;
-    if (w.callDenied) return { deny: 'denied above core' } as never;
+    const { tool, tool_use_id, agentId, ...input } = e as {
+      tool: string;
+      tool_use_id: string;
+      agentId?: string;
+    };
+    const { decision } = await $.tool.check({
+      tool,
+      input,
+      tool_use_id,
+      ...(agentId === undefined ? {} : { agentId }),
+    } as never);
+    if (decision === 'deny') return { deny: 'denied by a rule' } as never;
+    if (decision === 'allow' && w.engineRefuses)
+      return { isError: true, result: REFUSAL, text: REFUSAL } as never;
+    if (decision === 'ask' && !w.classifierAllows)
+      return { isError: true, result: `Error: ${DENIAL}`, text: DENIAL } as never;
     w.ran++;
-    return (
-      w.callFails
-        ? { isError: true, result: 'exit 1', text: 'exit 1' }
-        : { result: w.record ?? w.output, text: w.output }
-    ) as never;
+    if (w.callFails) return { isError: true, result: 'exit 1', text: 'exit 1' } as never;
+    return { result: w.record ?? w.output, text: w.output, context: w.context } as never;
   });
   return w;
 }
 
-const ENFORCE = { options: { mode: 'enforce' } };
-
-async function auto($: Engine, mode = 'auto') {
-  await $.classic.UserPromptSubmit({ prompt: '', permission_mode: mode } as never);
+async function auto($: Engine, mode = 'auto', agentId?: string) {
+  if (agentId === undefined)
+    await $.classic.UserPromptSubmit({ prompt: '', permission_mode: mode } as never);
+  else
+    await $.classic.SubagentStart({
+      agent_id: agentId,
+      agent_type: 'x',
+      permission_mode: mode,
+    } as never);
 }
 
 function check(
   $: Engine,
-  command: string,
-  id?: string,
-  input: Record<string, unknown> = {},
+  tool: string,
+  input: Record<string, unknown>,
   call: Record<string, unknown> = {},
 ): Promise<ToolCheckResult> {
-  return $.tool.check({
-    tool: 'Bash',
-    input: { command, ...input },
-    ...(id === undefined ? {} : { tool_use_id: id }),
-    ...call,
-  } as never);
+  return $.tool.check({ tool, input, tool_use_id: 't1', ...call } as never);
 }
 
-function say($: Engine, text: string, kind = 'composer', turnId?: string) {
-  return $.prompt.submit({
-    text,
-    wait: false,
-    origin: { kind },
-    ...(turnId === undefined ? {} : { turnId }),
-  } as never);
+const bash = (command: string) => ({ command });
+
+// A conversation's words as the store keeps them, `at` its last write.
+const kept = (at: number, ...turns: string[]) => ({ turns, leftOut: 0, at });
+const turnsOf = (w: World, session = 's1') =>
+  (w.store.get(`turns:${session}`) as { turns: string[] } | undefined)?.turns;
+
+function say($: Engine, text: string, kind = 'composer', extra: Record<string, unknown> = {}) {
+  return $.prompt.submit({ text, wait: false, origin: { kind }, ...extra } as never);
 }
 
-function answer($: Engine, text: string) {
-  return $.turn.complete({
-    answer: text,
-    durationMs: 1,
-    isAborted: false,
-    turnId: 'x',
-    reason: 'answer',
-  } as never);
+function judged(w: World, index = -1) {
+  return JSON.parse(w.modelCalls.at(index)!.prompt) as {
+    user_messages: string[];
+    subagent_brief?: string;
+    tool: string;
+    input: unknown;
+    facts?: { answers: unknown[] };
+  };
 }
 
-describe('tool.check', () => {
-  test('a core allow or deny is never touched', ENFORCE, async ($, on) => {
-    world($, on, { core: { decision: 'deny', reason: 'rule' } });
-    await auto($);
-    expect((await check($, 'ls', 't1')).decision).toBe('deny');
-  });
-
-  test('outside auto mode the core answer stands', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($, 'default');
-    expect((await check($, 'ls', 't1')).decision).toBe('ask');
-  });
-
-  test('enforce allows a read-only command', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($);
-    expect((await check($, 'git log --oneline -5 | head -3', 't1')).decision).toBe('allow');
-    expect((await check($, 'rm -rf x', 't2')).decision).toBe('ask');
-  });
-
-  test('a read that names secret material is left to the classifier', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($);
-    expect((await check($, "rg -n 'apiKey' config.json", 't1')).decision).toBe('ask');
-    expect((await check($, 'cat ~/.netrc-Password.txt', 't2')).decision).toBe('ask');
-  });
-
-  test('a call that widens the sandbox is left to the core', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($);
-    expect((await check($, 'ls', 't1', { dangerouslyDisableSandbox: true })).decision).toBe('ask');
-    expect((await check($, 'ls', 't2', { allowed_domains: ['example.com'] })).decision).toBe('ask');
-    expect((await check($, 'ls', 't3', { allowed_domains: [] })).decision).toBe('allow');
-  });
-
-  test(
-    'without the sandbox, or for a program outside it, the core answer stands',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on);
-      await auto($);
-      expect((await check($, 'git status', 't1')).decision).toBe('allow');
-      expect((await check($, 'jq . x', 't2')).decision).toBe('ask');
-      expect((await check($, 'echo "$(jq . x)"', 't3')).decision).toBe('ask');
-      w.sandbox = { enabled: false };
-      expect((await check($, 'ls', 't3')).decision).toBe('ask');
-    },
-  );
-
-  test('an organization ceiling is left to the core', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($);
-    expect((await check($, 'ls', 't1', {}, { ceiling: 'ask' })).decision).toBe('ask');
-  });
-
-  test('an ask from a settings rule or a hook is left to the core', ENFORCE, async ($, on) => {
-    const w = world($, on, { core: { decision: 'ask', rule: 'Bash(git status)' } });
-    await auto($);
-    expect((await check($, 'git status', 't1')).decision).toBe('ask');
-    w.core = { decision: 'ask', hook: 'PreToolUse' };
-    expect((await check($, 'git status', 't2')).decision).toBe('ask');
-  });
-
-  test('a subagent is judged by its own mode', ENFORCE, async ($, on) => {
-    world($, on);
-    await auto($);
-    expect((await check($, 'ls', 't1', {}, { agentId: 'a1' })).decision).toBe('ask');
-    await $.classic.SubagentStart({
-      agent_id: 'a1',
-      agent_type: 'x',
-      permission_mode: 'auto',
-    } as never);
-    expect((await check($, 'ls', 't2', {}, { agentId: 'a1' })).decision).toBe('allow');
-    await $.classic.SubagentStart({
-      agent_id: 'a2',
-      agent_type: 'x',
-      permission_mode: 'default',
-    } as never);
-    expect((await check($, 'ls', 't3', {}, { agentId: 'a2' })).decision).toBe('ask');
-  });
-
-  test('shadow answers the core and logs what enforce would do', async ($, on) => {
+describe('the judge', () => {
+  test('a call the judge allows runs without the classifier', async ($, on) => {
     const w = world($, on);
     await auto($);
-    // Writes land in order, so a logged query would be the first line.
-    await check($, 'ls');
-    expect((await check($, 'ls', 't1')).decision).toBe('ask');
-    const lines = (await w.logged(1)) as Array<Record<string, unknown>>;
-    expect(lines.map((line) => [line.tool_use_id, line.verdict, line.isEnforcing])).toEqual([
-      ['t1', 'allow', false],
+    await say($, 'set up the build');
+    const result = await check($, 'Bash', bash('make setup'));
+    expect(result.decision).toBe('allow');
+    expect(result.reason).toContain('a reversible step of the task');
+    w.reply = REVIEW;
+    expect((await check($, 'Bash', bash('make publish'), { tool_use_id: 't2' })).decision).toBe(
+      'ask',
+    );
+  });
+
+  test('the judge answers for every tool', async ($, on) => {
+    const w = world($, on);
+    await auto($);
+    expect((await check($, 'Agent', { prompt: 'do it' })).decision).toBe('allow');
+    expect((await check($, 'mcp__srv__send', { to: 'x' })).decision).toBe('allow');
+    expect(w.modelCalls.map((_, i) => judged(w, i).tool)).toEqual(['Agent', 'mcp__srv__send']);
+  });
+
+  test('a core allow or deny is never touched', async ($, on) => {
+    const w = world($, on, { core: { decision: 'deny', reason: 'rule' }, reply: ALLOW });
+    await auto($);
+    expect((await check($, 'Bash', bash('ls'))).decision).toBe('deny');
+    w.core = { decision: 'allow' };
+    w.reply = REVIEW;
+    expect((await check($, 'Bash', bash('ls'))).decision).toBe('allow');
+    expect(w.modelCalls).toHaveLength(0);
+  });
+
+  test('an ask from a settings rule, a hook, or an organization ceiling is left to the core', async ($, on) => {
+    const w = world($, on, { core: { decision: 'ask', rule: 'Bash(make:*)' } });
+    await auto($);
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+    w.core = { decision: 'ask', hook: 'PreToolUse' };
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+    w.core = { decision: 'ask' };
+    expect((await check($, 'Bash', bash('make'), { ceiling: 'ask' })).decision).toBe('ask');
+    expect(w.modelCalls).toHaveLength(0);
+  });
+
+  test('a tool whose verdict the engine keeps never reaches the judge', async ($, on) => {
+    const w = world($, on);
+    await auto($);
+    for (const tool of ['SubagentHandback', 'AskUserQuestion', 'ExitPlanMode']) {
+      w.core = { decision: 'ask', reason: `synthetic reason for ${tool}` };
+      expect(await check($, tool, {}, { tool_use_id: tool })).toEqual(w.core);
+    }
+    expect(w.modelCalls).toHaveLength(0);
+    const lines = await w.logged(3);
+    expect(lines.map((line) => [line.event, line.tool, line.coreReason])).toEqual([
+      ['reserved', 'SubagentHandback', 'synthetic reason for SubagentHandback'],
+      ['reserved', 'AskUserQuestion', 'synthetic reason for AskUserQuestion'],
+      ['reserved', 'ExitPlanMode', 'synthetic reason for ExitPlanMode'],
     ]);
   });
 
-  test('shadow uses one-shot grants as enforce would, so the log matches', async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
+  test('a call run in the background never reaches the judge', async ($, on) => {
+    const w = world($, on, { core: { decision: 'ask', reason: 'synthetic core reason' } });
     await auto($);
-    await say($, 'push feature');
-    await check($, 'git push origin feature', 't1');
-    await check($, 'git push origin feature', 't2');
-    const lines = (await w.logged(3)) as Array<Record<string, unknown>>;
-    expect(lines.filter((line) => line.event === 'check').map((line) => line.verdict)).toEqual([
+    const dev = { command: 'npm run dev', run_in_background: true };
+    expect(await check($, 'Bash', dev)).toEqual(w.core);
+    expect(w.modelCalls).toHaveLength(0);
+    const [line] = await w.logged(1);
+    expect([line!.event, line!.tool, line!.coreReason]).toEqual([
+      'background',
+      'Bash',
+      'synthetic core reason',
+    ]);
+  });
+
+  test('each loop is judged only in its own auto mode', async ($, on) => {
+    const w = world($, on);
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+    // A tool's own arguments, which `classic.PreToolUse` carries, are not a
+    // mode report.
+    await $.tool.call({
+      tool: 'Bash',
+      command: 'make',
+      permission_mode: 'auto',
+      tool_use_id: 't0',
+    } as never);
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+    await auto($, 'default');
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+    await auto($);
+    const sub = { agentId: 'a1' };
+    expect((await check($, 'Bash', bash('make'), sub)).decision).toBe('ask');
+    await auto($, 'auto', 'a1');
+    expect((await check($, 'Bash', bash('make'), sub)).decision).toBe('allow');
+    await auto($, 'default', 'a2');
+    expect((await check($, 'Bash', bash('make'), { agentId: 'a2' })).decision).toBe('ask');
+    expect(w.ran).toBe(0);
+  });
+
+  for (const [name, change, why] of [
+    ['gives no reply', (w: World) => (w.reply = undefined), 'api-error invalid_request (400)'],
+    ['fails', (w: World) => (w.modelFails = true), 'model unavailable'],
+  ] as const) {
+    test(`a judge that ${name} leaves the call to the classifier, saying why`, async ($, on) => {
+      const w = world($, on);
+      change(w);
+      await auto($);
+      expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
+      const [line] = await w.logged(1);
+      expect([line!.verdict, line!.reason]).toEqual(['pass', expect.stringContaining(why)]);
+    });
+  }
+
+  test(
+    'the judge runs on the model and effort the user set, as written, with a time limit',
+    {
+      options: { model: 'some-model-id', effort: 'some-effort' },
+    },
+    async ($, on) => {
+      const w = world($, on);
+      await auto($);
+      await check($, 'Bash', bash('make'));
+      expect(w.modelCalls.map(({ model, effort }) => [model, effort])).toEqual([
+        ['some-model-id', 'some-effort'],
+      ]);
+      expect(w.modelCalls[0]!.timeoutMs).toBeGreaterThan(0);
+    },
+  );
+
+  test(
+    'an emptied setting leaves the judge on its default',
+    {
+      options: { model: '', effort: '' },
+    },
+    async ($, on) => {
+      const w = world($, on);
+      await auto($);
+      await check($, 'Bash', bash('make'));
+      expect(w.modelCalls[0]!.model).not.toBe('');
+      expect(w.modelCalls[0]!.effort).not.toBe('');
+    },
+  );
+
+  test('each decision is logged with its verdict and why the core asked', async ($, on) => {
+    const w = world($, on, { core: { decision: 'ask', reason: 'synthetic core reason' } });
+    await auto($);
+    await check($, 'Bash', bash('make setup'));
+    const [line] = await w.logged(1);
+    expect([line!.event, line!.tool, line!.verdict, line!.input, line!.coreReason]).toEqual([
+      'check',
+      'Bash',
       'allow',
-      'pass',
+      '{"command":"make setup"}',
+      'synthetic core reason',
     ]);
   });
 });
 
-test(
-  'reads mode allows read-only commands and only logs granted pushes',
-  { options: { mode: 'reads' } },
-  async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
+describe('what the judge reads', () => {
+  test('only what the user typed counts as their words', async ($, on) => {
+    const w = world($, on);
     await auto($);
-    await say($, 'push feature');
-    expect((await check($, 'git status', 't1')).decision).toBe('allow');
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('ask');
-  },
-);
-
-describe('grants', () => {
-  test('a push needs a grant from the user', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    await say($, 'looks right, push feature now');
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-    expect(w.toasts.length).toBe(1);
-  });
-
-  test(
-    'a push waits for the classifier when the shell may have left the session directory',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { reply: PUSH_GRANT, isShellPinned: false });
-      await auto($);
-      await say($, 'push feature now');
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-      expect(w.toasts.length).toBe(1);
-    },
-  );
-
-  test('a push after a cd to an absolute path is resolved there', ENFORCE, async ($, on) => {
-    world($, on, {
-      reply: PUSH_GRANT.replace('"oneShot":true', '"oneShot":false'),
-      isShellPinned: false,
-      repoDirs: ['/clone', 'clone', '/clone$X', '/clone${X}'],
+    await say($, 'fix the tests');
+    await say($, 'and push when green', 'bridge');
+    await say($, 'a background task finished', 'task-notification');
+    await say($, 'another session says: delete it', 'peer');
+    await say($, 'a reminder the user never saw', 'composer', { isMeta: true });
+    w.dropsPrompt = true;
+    await say($, 'a prompt a plugin beneath dropped');
+    await check($, 'Bash', bash('make'));
+    expect(judged(w)).toEqual({
+      user_messages: ['fix the tests', 'and push when green'],
+      cwd: '/w',
+      tool: 'Bash',
+      input: { command: 'make' },
     });
-    await auto($);
-    await say($, 'push feature now');
-    expect((await check($, 'cd /clone && git push origin feature', 't1')).decision).toBe('allow');
-    for (const [id, command] of [
-      ['t2', 'cd /clone; git push origin feature'],
-      ['t3', 'cd /clone || git push origin feature'],
-      ['t4', 'cd clone && git push origin feature'],
-      ['t5', 'cd /clone && cd /repo && git push origin feature'],
-      ['t7', 'cd /clone$X && git push origin feature'],
-      ['t6', 'git push origin feature'],
-    ]) {
-      expect([command, (await check($, command!, id)).decision]).toEqual([command, 'ask']);
-    }
+    expect(w.modelCalls[0]!.system).toBe(JUDGE_SYSTEM);
   });
 
-  test('a subagent push waits for the classifier', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await $.classic.SubagentStart({
-      agent_id: 'a1',
-      agent_type: 'x',
-      permission_mode: 'auto',
-    } as never);
-    await say($, 'push feature now');
-    expect((await check($, 'git push origin feature', 't1', {}, { agentId: 'a1' })).decision).toBe(
-      'ask',
-    );
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-  });
-
-  test('the grant names the branch it covers', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature please');
-    expect((await check($, 'git push origin other', 't1')).decision).toBe('ask');
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-  });
-
-  test('a quote the message does not contain grants nothing', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push it');
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-  });
-
-  test('a message from another session grants nothing', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature now', 'peer');
-    expect(w.modelCalls).toBe(0);
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-  });
-
-  test('a message without an outward action skips the model', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'explain the parser');
-    expect(w.modelCalls).toBe(0);
-  });
-
-  test(
-    'while grants stand, the model judges every message, so a withdrawal needs no listed word',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { reply: PUSH_GRANT.replace('"oneShot":true', '"oneShot":false') });
-      await auto($);
-      await say($, 'push feature as you go');
-      expect((await check($, 'git push origin feature')).decision).toBe('allow');
-      w.reply = JSON.stringify({ grants: [], withdraws: false });
-      await say($, 'explain the parser');
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('allow');
-      w.reply = JSON.stringify({ grants: [], withdraws: true });
-      await say($, 'keep it local for now');
-      expect((await check($, 'git push origin feature', 't2')).decision).toBe('ask');
-      expect(w.modelCalls).toBe(3);
-    },
-  );
-
-  test('a message judged only for withdrawal grants nothing', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature');
-    expect((await check($, 'git push origin feature')).decision).toBe('allow');
-    await answer($, 'Next I will push other.');
-    w.reply = JSON.stringify({
-      grants: [
-        {
-          ...JSON.parse(PUSH_GRANT).grants[0],
-          branch: 'other',
-          namedBy: 'plan',
-          quote: 'push other',
-        },
-      ],
-      withdraws: false,
-    });
-    await say($, 'explain the parser');
-    expect(w.modelCalls).toBe(2);
-    expect((await check($, 'git push origin other', 't1')).decision).toBe('ask');
-  });
-
-  test('a later message that takes the grant back withdraws it', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature once the tests pass');
-    expect((await check($, 'git push origin feature')).decision).toBe('allow');
-    w.reply = JSON.stringify({ grants: [] });
-    await say($, "actually don't push, I want to review the diff first");
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-  });
-
-  test(
-    'the model judges whether words such as "don\'t" take a grant back',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { reply: PUSH_GRANT.replace('}]}', '}],"withdraws":false}') });
-      await auto($);
-      await say($, 'push feature as you go');
-      expect((await check($, 'git push origin feature')).decision).toBe('allow');
-      w.reply = JSON.stringify({ grants: [], withdraws: false });
-      await say($, "don't add comments to the tests");
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('allow');
-      w.reply = JSON.stringify({ grants: [], withdraws: true });
-      await say($, 'hold on, let me look first');
-      expect((await check($, 'git push origin feature', 't2')).decision).toBe('ask');
-      expect(w.modelCalls).toBe(3);
-      expect(w.modelPrompts[2]).toContain(
-        '<earlier_grants>\n- push (github.com/o/r, branch feature), once: "push feature"',
-      );
-    },
-  );
-
-  test(
-    'without the model, words such as "don\'t" take every grant back',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { reply: PUSH_GRANT });
-      await auto($);
-      await say($, 'push feature as you go');
-      w.reply = undefined;
-      await say($, "don't add comments to the tests");
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    },
-  );
-
-  test(
-    'a message is not held up by the model, and its grants apply in the order sent',
-    ENFORCE,
-    async ($, on) => {
-      let release: (value?: unknown) => void = () => {};
-      const w = world($, on, {
-        reply: PUSH_GRANT,
-        gate: new Promise((resolve) => (release = resolve)),
-      });
-      await auto($);
-      await say($, 'push feature');
-      expect(w.toasts).toEqual([]);
-      w.reply = JSON.stringify({ grants: [], withdraws: false });
-      await say($, "wait, don't push yet");
-      release();
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    },
-  );
-
-  test('a read does not wait for a grant still being read', ENFORCE, async ($, on) => {
-    let release: (value?: unknown) => void = () => {};
-    world($, on, { reply: PUSH_GRANT, gate: new Promise((resolve) => (release = resolve)) });
-    await auto($);
-    await say($, 'push feature');
-    const push = check($, 'git push origin feature', 't2');
-    expect((await check($, 'git status', 't1')).decision).toBe('allow');
-    release();
-    expect((await push).decision).toBe('allow');
-  });
-
-  test('an interrupt withdraws grants still being read', ENFORCE, async ($, on) => {
-    let release: (value?: unknown) => void = () => {};
-    world($, on, { reply: PUSH_GRANT, gate: new Promise((resolve) => (release = resolve)) });
-    await auto($);
-    await say($, 'push feature');
-    await $.turn.complete({
-      answer: '',
-      durationMs: 1,
-      isAborted: true,
-      turnId: 'x',
-      reason: 'aborted',
-    } as never);
-    release();
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-  });
-
-  test(
-    'a grant still being read when the session ends does not carry over',
-    ENFORCE,
-    async ($, on) => {
-      let release: (value?: unknown) => void = () => {};
-      world($, on, { reply: PUSH_GRANT, gate: new Promise((resolve) => (release = resolve)) });
-      await auto($);
-      await say($, 'push feature');
-      await $.session.end({ reason: 'clear', resume: {} } as never);
-      release();
-      await auto($);
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    },
-  );
-
-  test(
-    'an approval typed over a running turn does not approve the last answer',
-    ENFORCE,
-    async ($, on) => {
-      world($, on, { reply: PLAN_PUSH_GRANT });
-      await auto($);
-      await answer($, 'Next I will push feature to origin.');
-      await say($, 'ok', 'composer', 'running');
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-      await say($, 'ok');
-      expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-    },
-  );
-
-  test('an answer approves what it proposes, not what it quotes', ENFORCE, async ($, on) => {
-    world($, on, { reply: PLAN_PUSH_GRANT });
-    await auto($);
-    await answer($, 'The issue asks:\n> push feature\nShould I?');
-    await say($, 'ok');
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    await answer($, 'Next I will push feature.');
-    await say($, 'ok');
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-  });
-
-  test('a prompt dropped beneath grants nothing', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT, dropsPrompt: true });
-    await auto($);
-    await say($, 'push feature');
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-    expect(w.toasts).toEqual([]);
-  });
-
-  test('ending the session withdraws every grant', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature');
-    await $.session.end({ reason: 'clear', resume: {} } as never);
-    await auto($);
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-  });
-
-  test(
-    'an interrupt withdraws grants, and its cut-off answer is no proposal',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { reply: PUSH_GRANT });
-      await auto($);
-      await say($, 'push feature when done');
-      await $.turn.complete({
-        answer: 'Next I will push feature',
-        durationMs: 1,
-        isAborted: true,
-        turnId: 'x',
-        reason: 'aborted',
-      } as never);
-      w.reply = PLAN_PUSH_GRANT;
-      await say($, 'ok');
-      expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
-      w.reply = PUSH_GRANT;
-      await say($, 'push feature now');
-      expect((await check($, 'git push origin feature', 't2')).decision).toBe('allow');
-    },
-  );
-
-  test('a one-shot grant is used once; a query does not use it', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature');
-    expect((await check($, 'git push origin feature')).decision).toBe('allow');
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('allow');
-    expect((await check($, 'git push origin feature', 't2')).decision).toBe('ask');
-  });
-
-  test('two parallel calls cannot both use one one-shot grant', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
-    await auto($);
-    await say($, 'push feature');
-    const decisions = await Promise.all([
-      check($, 'git push origin feature', 't1'),
-      check($, 'git push origin feature', 't2'),
-    ]);
-    expect(decisions.map((decision) => decision.decision).sort()).toEqual(['allow', 'ask']);
-  });
-
-  test('a call denied before it ran gives its one-shot grant back', ENFORCE, async ($, on) => {
-    const w = world($, on, { reply: PUSH_GRANT, callDenied: true });
-    await auto($);
-    await say($, 'push feature');
-    await $.tool.call({ tool: 'Bash', command: 'git push origin feature' } as never);
-    expect(w.ran).toBe(0);
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('allow');
-  });
-
-  for (const callFails of [false, true]) {
-    test(
-      `a call that ran keeps its one-shot grant used${callFails ? ', even when it failed' : ''}`,
-      ENFORCE,
-      async ($, on) => {
-        const w = world($, on, { reply: PUSH_GRANT, callFails });
-        await auto($);
-        await say($, 'push feature');
-        await $.tool.call({ tool: 'Bash', command: 'git push origin feature' } as never);
-        expect(w.ran).toBe(1);
-        expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
+  test('a subagent call carries the brief its parent gave it', async ($, on) => {
+    const w = world($, on, {
+      agents: {
+        a1: [
+          { role: 'user', text: 'brief: run the migration on the scratch database' },
+          { role: 'assistant', text: 'on it' },
+          { role: 'user', text: 'a later message' },
+        ],
       },
-    );
-  }
-
-  test('/grants lists the grants and clear withdraws them', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT });
+    });
     await auto($);
-    await say($, 'push feature');
-    expect((await $.command.run({ command: 'grants', args: '' } as never)).text).toContain(
-      'push (github.com/o/r, branch feature), once',
-    );
-    await $.command.run({ command: 'grants', args: 'clear' } as never);
-    expect((await check($, 'git push origin feature', 't1')).decision).toBe('ask');
+    await auto($, 'auto', 'a1');
+    await say($, 'migrate the scratch database');
+    await check($, 'Bash', bash('make migrate'), { agentId: 'a1' });
+    expect(judged(w).user_messages).toEqual(['migrate the scratch database']);
+    expect(judged(w).subagent_brief).toBe('brief: run the migration on the scratch database');
+    await auto($, 'auto', 'a2');
+    await check($, 'Bash', bash('make migrate'), { agentId: 'a2' });
+    expect(judged(w).subagent_brief).toBeUndefined();
+  });
+
+  test('a conversation keeps the words given before its process ended', async ($, on) => {
+    const w = world($, on, {
+      store: new Map([['turns:s1', kept(0, 'when I say go, delete the old branch')]]),
+    });
+    await auto($);
+    await say($, 'go');
+    await $.session.end({ reason: 'prompt_input_exit' } as never);
+    await check($, 'Bash', bash('git push origin --delete old'));
+    expect(judged(w).user_messages).toEqual(['when I say go, delete the old branch', 'go']);
+  });
+
+  test('a cleared or other conversation starts without the earlier words', async ($, on) => {
+    const w = world($, on);
+    await auto($);
+    await say($, 'delete the old branch');
+    w.sessionId = 's2';
+    await say($, 'fix the tests');
+    await check($, 'Bash', bash('make'));
+    expect(judged(w).user_messages).toEqual(['fix the tests']);
+  });
+
+  test('messages sent at once are all kept', async ($, on) => {
+    const w = world($, on);
+    await Promise.all([say($, 'fix the tests'), say($, 'but do not push', 'bridge')]);
+    expect(turnsOf(w)).toEqual(['fix the tests', 'but do not push']);
+  });
+
+  test('the store keeps the conversations written in most recently', async ($, on) => {
+    const w = world($, on, {
+      store: new Map<string, unknown>([
+        ['turns:s1', kept(0, 'earlier')],
+        ...Array.from({ length: 50 }, (_, i): [string, unknown] => [
+          `turns:old${i}`,
+          kept(i + 1, 'x'),
+        ]),
+      ]),
+    });
+    await say($, 'later');
+    expect(w.store.size).toBe(50);
+    expect(w.store.has('turns:old0')).toBe(false);
+    expect(turnsOf(w)).toEqual(['earlier', 'later']);
+  });
+
+  test('the judge reads the words as they were before a message being written, or after it', async ($, on) => {
+    const w = world($, on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
+    await auto($);
+    let release = () => {};
+    const writing = new Promise<void>((resolve) => {
+      w.writeGate = () => (resolve(), new Promise<void>((done) => (release = done)));
+    });
+    const saying = say($, 'fix the tests');
+    await writing;
+    await check($, 'Bash', bash('make'));
+    release();
+    await saying;
+    expect(judged(w).user_messages).toEqual(['do not push']);
+  });
+
+  test('a write the store refuses keeps the words it had, and later words are still kept', async ($, on) => {
+    const w = world($, on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
+    w.storeLimit = JSON.stringify(Object.fromEntries(w.store)).length + 50;
+    await say($, 'x'.repeat(100)).catch(() => {});
+    expect(turnsOf(w)).toEqual(['do not push']);
+    w.storeLimit = 4 * 1024 * 1024;
+    await say($, 'fix the tests');
+    expect(turnsOf(w)).toEqual(['do not push', 'fix the tests']);
+  });
+
+  test('a full store drops the least recent conversations to keep the newest words', async ($, on) => {
+    const w = world($, on, {
+      store: new Map([
+        ['turns:b', kept(2, 'b'.repeat(400))],
+        ['turns:a', kept(1, 'a'.repeat(400))],
+        ['turns:s1', kept(3, 'earlier')],
+      ]),
+      storeLimit: 600,
+    });
+    await say($, 'later');
+    expect([...w.store.keys()]).toEqual(['turns:b', 'turns:s1']);
+    expect(turnsOf(w)).toEqual(['earlier', 'later']);
+  });
+});
+
+describe("answers to the agent's question", () => {
+  const QUESTION = 'Which directories should go?';
+  const questions = [
+    {
+      question: QUESTION,
+      header: 'Cleanup',
+      multiSelect: true,
+      options: [
+        { label: 'build, cache', description: 'rm -r build cache' },
+        { label: 'notes', description: 'rm -r notes-old' },
+      ],
+    },
+  ];
+  const ask = ($: Engine, tool = 'AskUserQuestion') =>
+    $.tool.call({ tool, questions, tool_use_id: 'q1' } as never);
+
+  test("the answer, the person's notes and typed text, and the questions they were shown reach the judge as given", async ($, on) => {
+    const answered = {
+      answers: { [QUESTION]: 'build, cache, notes' },
+      annotations: { [QUESTION]: { notes: 'keep the README in notes' } },
+      response: 'and empty the trash',
+    };
+    // A hook beneath reworded what the person saw.
+    const shown = [{ ...questions[0]!, question: 'Which build directories should go?' }];
+    const w = world($, on, {
+      classifierAllows: true,
+      record: { questions: shown, ...answered },
+    });
+    await auto($);
+    await say($, 'tidy the repository');
+    await ask($);
+    await check($, 'Bash', bash('rm -r build cache notes-old'));
+    const [task, answer] = judged(w).user_messages;
+    expect(task).toBe('tidy the repository');
+    expect(answer!.startsWith("Answer to the agent's question: {")).toBe(true);
+    expect(JSON.parse(answer!.slice(answer!.indexOf('{')))).toEqual({
+      ...answered,
+      questions: shown,
+    });
+  });
+
+  test('another tool, a dialog resolved while the person was away, or one that failed holds no answer', async ($, on) => {
+    const w = world($, on, {
+      classifierAllows: true,
+      record: { questions, answers: { [QUESTION]: 'notes' } },
+    });
+    await auto($);
+    await say($, 'tidy the repository');
+    await ask($, 'mcp__srv__ask');
+    w.record = { questions, answers: { [QUESTION]: 'notes' }, afkTimeoutMs: 60_000 };
+    await ask($);
+    w.callFails = true;
+    await ask($);
+    expect(turnsOf(w)).toEqual(['tidy the repository']);
+  });
+});
+
+describe('facts', () => {
+  const CHECK = JSON.stringify({
+    reason: 'whether the reset discards uncommitted work',
+    verdict: 'check',
+    check: [{ path: '/w' }, { repo: '/w', ref: 'origin/topic' }],
+  });
+
+  test('the judge decides again with what the checks found', async ($, on) => {
+    const w = world($, on, {
+      replies: [CHECK],
+      git: {
+        'rev-parse --show-toplevel': { exitCode: 0, stdout: '/w\n' },
+        'status --porcelain=v1 -z --untracked-files=all --ignored=matching -- /w': {
+          exitCode: 0,
+          stdout: ' M src/a.ts\0',
+        },
+        'rev-parse --verify --quiet origin/topic^{commit}': { exitCode: 1, stdout: '' },
+      },
+      files: new Map([['/w', '']]),
+    });
+    await auto($);
+    await say($, 'start over from main');
+    expect((await check($, 'Bash', bash('git reset --hard origin/main'))).decision).toBe('allow');
+    expect(w.modelCalls).toHaveLength(2);
+    expect(judged(w, 0).facts).toBeUndefined();
+    expect(judged(w, 1).facts!.answers).toMatchObject([
+      { path: '/w', exists: true, git: { uncommittedChanges: { count: 1, first: ['src/a.ts'] } } },
+      { repo: '/w', ref: 'origin/topic', exists: false },
+    ]);
+    const [line] = await w.logged(1);
+    expect(line!.checked).toEqual([{ path: '/w' }, { repo: '/w', ref: 'origin/topic' }]);
+    expect(line!.facts).toEqual(judged(w, 1).facts);
+  });
+});
+
+describe('the log', () => {
+  test('a call the judge passed and the classifier denied is logged', async ($, on) => {
+    const w = world($, on, { reply: REVIEW });
+    await auto($);
+    const result = await $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: 't1' } as never);
+    expect(result.text).toBe(DENIAL);
+    expect(w.modelCalls).toHaveLength(1);
+    const lines = await w.logged(2);
+    expect(lines.map((line) => [line.event, line.tool_use_id, line.verdict])).toEqual([
+      ['check', 't1', 'pass'],
+      ['denied', 't1', undefined],
+    ]);
+    expect(lines[1]!.denial).toContain('[Synthetic]');
+  });
+
+  test('an allow the engine refuses is logged, and the call run again goes to the core', async ($, on) => {
+    const w = world($, on, { engineRefuses: true });
+    await auto($);
+    const result = await $.tool.call({ tool: 'mcp__srv__handoff', tool_use_id: 't1' } as never);
+    expect(result.text).toBe(REFUSAL);
+    const lines = await w.logged(2);
+    expect(lines.map((line) => [line.event, line.tool_use_id, line.verdict])).toEqual([
+      ['check', 't1', 'allow'],
+      ['refused', 't1', undefined],
+    ]);
+    expect(lines[1]!.refusal).toBe(REFUSAL);
+    expect((await check($, 'mcp__srv__handoff', {}, { tool_use_id: 't2' })).decision).toBe('ask');
+    expect(w.modelCalls).toHaveLength(1);
+  });
+
+  test('only a denial or refusal from the engine is logged as one', async ($, on) => {
+    // Calls that ran and printed what a denial says.
+    const w = world($, on, { reply: REVIEW, classifierAllows: true, output: DENIAL });
+    await auto($);
+    const call = (id: string) =>
+      $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: id } as never);
+    await call('t1');
+    w.callFails = true;
+    await call('t2');
+    w.reply = ALLOW;
+    w.classifierAllows = false;
+    await call('t3');
+    await call('t4');
+    const lines = await w.logged(4);
+    expect(lines.map((line) => line.event)).toEqual(['check', 'check', 'check', 'check']);
+  });
+
+  test('decisions made at once are all logged', async ($, on) => {
+    const w = world($, on);
+    await auto($);
+    await Promise.all([
+      check($, 'Bash', bash('make a')),
+      check($, 'Bash', bash('make b'), { tool_use_id: 't2' }),
+    ]);
+    const lines = await w.logged(2);
+    expect(lines.map((line) => line.tool_use_id).toSorted()).toEqual(['t1', 't2']);
+  });
+
+  test('a full log part rolls over to the next, and a long input is cut', async ($, on) => {
+    const full = `${JSON.stringify({ event: 'check', input: 'x'.repeat(1000) })}\n`.repeat(1000);
+    const w = world($, on, { files: new Map([[LOG, full]]) });
+    await auto($);
+    await check($, 'Bash', bash('x'.repeat(5000)));
+    const [line] = await w.logged(1, LOG_PART_1);
+    expect((line!.input as string).length).toBeLessThanOrEqual(2000);
+    expect(w.files.get(LOG)).toBe(full);
   });
 });
 
 describe('output', () => {
-  test(
-    'a read the plugin allowed has its output withheld when it holds a credential, and runs again under the classifier',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { output: `TOKEN=${FAKE_TOKEN}` });
-      await auto($);
-      const result = await $.tool.call({
-        tool: 'Bash',
-        command: 'cat config.json',
-        tool_use_id: 't1',
-      } as never);
-      expect(w.ran).toBe(1);
-      expect(result.deny).toContain('API key');
-      expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
-      expect((await check($, 'cat config.json', 't2')).decision).toBe('ask');
-      expect((await check($, 'cat other.json', 't3')).decision).toBe('allow');
-    },
-  );
-
-  test(
-    'output is passed on when it holds no credential, or the plugin did not allow the read',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, { output: 'version 1.2.3' });
-      await auto($);
-      expect(
-        (
-          await $.tool.call({
-            tool: 'Bash',
-            command: 'cat config.json',
-            tool_use_id: 't1',
-          } as never)
-        ).text,
-      ).toBe('version 1.2.3');
-      w.output = `TOKEN=${FAKE_TOKEN}`;
-      w.core = { decision: 'allow' };
-      expect(
-        (
-          await $.tool.call({
-            tool: 'Bash',
-            command: 'cat config.json',
-            tool_use_id: 't2',
-          } as never)
-        ).text,
-      ).toContain(FAKE_TOKEN);
-    },
-  );
-
-  test('a background read is left to the classifier', ENFORCE, async ($, on) => {
-    world($, on);
+  test('a call the plugin allowed has its output withheld when it holds a credential, and runs again under the classifier', async ($, on) => {
+    const w = world($, on, { output: `TOKEN=${FAKE_TOKEN}` });
     await auto($);
-    expect((await check($, 'ls', 't1', { run_in_background: true })).decision).toBe('ask');
+    const result = await $.tool.call({
+      tool: 'Bash',
+      command: 'cat config.json',
+      tool_use_id: 't1',
+    } as never);
+    expect(w.ran).toBe(1);
+    expect(result.deny).toContain('API key');
+    expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
+    expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
+    expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
   });
 
-  test(
-    'output the model would read later or from a file is checked or withheld',
-    ENFORCE,
-    async ($, on) => {
-      const w = world($, on, {
-        output: 'Output too large, saved to /out/t1.txt',
-        record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
-      });
-      await auto($);
-      const call = (command: string, id: string) =>
-        $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
-      w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
-      expect((await call('cat a.log', 't1')).deny).toContain('API key');
-      w.files.set('/out/t1.txt', 'line\n'.repeat(3));
-      expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
-      w.files.delete('/out/t1.txt');
-      expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
-      w.record = { stdout: '', backgroundTaskId: 'b1' };
-      expect((await call('cat d.log', 't4')).deny).toContain('background');
-    },
-  );
+  test('output is passed on when it holds no credential, or the plugin did not allow the call', async ($, on) => {
+    const w = world($, on, { output: 'version 1.2.3' });
+    await auto($);
+    const call = (id: string) =>
+      $.tool.call({ tool: 'Bash', command: 'cat config.json', tool_use_id: id } as never);
+    expect((await call('t1')).text).toBe('version 1.2.3');
+    w.output = `TOKEN=${FAKE_TOKEN}`;
+    w.core = { decision: 'allow' };
+    expect((await call('t2')).text).toContain(FAKE_TOKEN);
+  });
 
-  test('a check that fails withholds the output instead of showing it', ENFORCE, async ($, on) => {
+  test("output the model would read later, from a file, from a hook's own result, or beside it is checked or withheld", async ($, on) => {
+    const w = world($, on, {
+      output: 'Output too large, saved to /out/t1.txt',
+      record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
+    });
+    await auto($);
+    const call = (command: string, id: string) =>
+      $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
+    w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
+    expect((await call('cat a.log', 't1')).deny).toContain('API key');
+    w.files.set('/out/t1.txt', 'line\n'.repeat(3));
+    expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
+    w.files.delete('/out/t1.txt');
+    expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
+    w.record = { stdout: '', backgroundTaskId: 'b1' };
+    expect((await call('cat d.log', 't4')).deny).toContain('background');
+    w.output = undefined;
+    w.record = { stdout: `TOKEN=${FAKE_TOKEN}` };
+    expect((await call('cat e.log', 't5')).deny).toContain('API key');
+    w.output = 'ok';
+    w.record = undefined;
+    w.context = [`TOKEN=${FAKE_TOKEN}`];
+    expect((await call('cat f.log', 't6')).deny).toContain('API key');
+  });
+
+  test('a check that fails withholds the output instead of showing it', async ($, on) => {
     world($, on, {
       record: {
         get backgroundTaskId(): string {
@@ -780,64 +756,6 @@ describe('output', () => {
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'cat a.log', tool_use_id: id } as never);
     expect((await call('t1')).deny).toContain('checking it failed');
-    expect((await check($, 'cat a.log', 't2')).decision).toBe('ask');
-  });
-
-  test('shadow logs the output it would withhold and passes it on', async ($, on) => {
-    const w = world($, on, { output: `TOKEN=${FAKE_TOKEN}`, classifierAllows: true });
-    await auto($);
-    const result = await $.tool.call({
-      tool: 'Bash',
-      command: 'cat config.json',
-      tool_use_id: 't1',
-    } as never);
-    expect(result.text).toContain(FAKE_TOKEN);
-    const lines = (await w.logged(2)) as Array<Record<string, unknown>>;
-    expect(lines.map((line) => [line.event, line.isEnforcing])).toEqual([
-      ['check', false],
-      ['withheld', false],
-    ]);
-    expect(JSON.stringify(lines)).not.toContain(FAKE_TOKEN);
-  });
-
-  test('a granted push keeps its output', ENFORCE, async ($, on) => {
-    world($, on, { reply: PUSH_GRANT, output: `remote: ${FAKE_TOKEN}` });
-    await auto($);
-    await say($, 'push feature');
-    expect(
-      (
-        await $.tool.call({
-          tool: 'Bash',
-          command: 'git push origin feature',
-          tool_use_id: 't1',
-        } as never)
-      ).text,
-    ).toContain(FAKE_TOKEN);
-  });
-});
-
-describe('default branch', () => {
-  const forceGrant = (branch: string | null, quote: string) =>
-    PUSH_GRANT.replace('"push"', '"force_push"')
-      .replace('"branch":"feature"', `"branch":${JSON.stringify(branch)}`)
-      .replace('"push feature"', JSON.stringify(quote));
-
-  test('a force push of the default branch needs the user to name it', ENFORCE, async ($, on) => {
-    const w = world($, on, {
-      reply: forceGrant(null, 'force push'),
-      git: {
-        'git symbolic-ref --quiet --short HEAD': 'main',
-        'git show-ref --verify --quiet refs/heads/main': '',
-      },
-    });
-    await auto($);
-    await say($, 'force push');
-    expect((await check($, 'git push --force origin main', 't1')).decision).toBe('ask');
-    w.reply = forceGrant('main', 'force push');
-    await say($, 'force push; the main thing is speed');
-    expect((await check($, 'git push --force origin main', 't2')).decision).toBe('ask');
-    w.reply = forceGrant('main', 'force push main');
-    await say($, 'force push main');
-    expect((await check($, 'git push --force origin main', 't3')).decision).toBe('allow');
+    expect((await check($, 'Bash', bash('cat a.log'))).decision).toBe('ask');
   });
 });

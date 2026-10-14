@@ -1,17 +1,22 @@
 {
   "name": "preallow",
-  "version": "0.0.1",
-  "description": "Lets Claude Code auto mode run what you already approved without the classifier: sandboxed read-only commands, and the pushes and merges your own messages authorized",
-  "author": { "name": "Entwining" },
+  "version": "0.0.2",
+  "description": "Lets Claude Code auto mode run the steps of the task you gave without the classifier: a model judge allows what is reversible or what you explicitly asked for",
+  "author": {
+    "name": "Entwining"
+  },
   "license": "MIT",
   "types": "./types/index.d.ts",
   "userConfig": {
-    "mode": {
+    "model": {
       "type": "string",
-      "title": "Mode",
-      "description": "shadow logs what it would allow and changes nothing; reads allows read-only commands and logs the rest; enforce allows both",
-      "options": ["shadow", "reads", "enforce"],
-      "default": "shadow"
+      "title": "Judge model",
+      "description": "The model the judge runs on, passed to the model client as you write it: an alias or a full model id. Leave empty for the plugin's default."
+    },
+    "effort": {
+      "type": "string",
+      "title": "Judge effort",
+      "description": "How hard the judge thinks, passed to the model client as you write it. Leave empty for the plugin's default."
     }
   }
 }

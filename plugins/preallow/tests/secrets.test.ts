@@ -13,6 +13,7 @@ describe('findSecret', () => {
     ['JSON web token', `eyJ${RANDOM}.eyJ${RANDOM}.${RANDOM}`],
     ['URL credential', `proxy=http://user:${RANDOM.slice(0, 10)}@10.0.0.1:3128`],
     ['auth header', `Authorization: Basic ${RANDOM}`],
+    ['auth header', `x-api-key: ${RANDOM}.${RANDOM}`],
     ['bearer token', `curl -H "x: Bearer ya29.${RANDOM}"`],
     ['secret assignment', `DB_PASSWORD="${RANDOM}"`],
     ['private key', `-----BEGIN PGP ${'PRIVATE KEY'} BLOCK-----`],
@@ -34,6 +35,9 @@ describe('findSecret', () => {
     ['netrc password', `default\n  login u\n  password ${'hunter'}`],
     ['netrc password', `machine example.com\n  password ${'hunter'} login u`],
     ['registry credential', `{"auths": {"r.example.com": {"auth": "${'dTpw'.repeat(5)}"}}}`],
+    ['session cookie', `Cookie: theme=dark; sessionid=${RANDOM}`],
+    ['session cookie', `curl -b 'connect.sid=s%3A${RANDOM}.${RANDOM}' https://example.com`],
+    ['session cookie', `Set-Cookie: PHPSESSID=${RANDOM.toLowerCase()}; Path=/`],
   ];
   for (const [kind, text] of found) {
     test(`${kind}: ${text}`, () => {
@@ -54,11 +58,17 @@ describe('findSecret', () => {
     'const cacheKey = "user123abc456def789"',
     'token = config.tokens2024.primary',
     'The default timeout applies; see the password reset guide.',
+    `sessionId=${['3f2a9c4e', '7b1d', '4e8a', '9c2f', '5d6e7a8b9c0d'].join('-')}`,
+    'session_timeout=3600',
+    `considered=${RANDOM}`,
   ];
   for (const [name, run] of [
     ['word characters and hyphens', 'a-'.repeat(500_000)],
     ['blank lines', '\n'.repeat(100_000)],
     ['indented blank lines', '  \n'.repeat(50_000)],
+    ['netrc machine lines', 'machine a\n'.repeat(100_000)],
+    ['secret names', 'A_KEY='.repeat(100_000)],
+    ['cookie names', 'sess'.repeat(250_000)],
   ] as const) {
     test(`a long run of ${name} scans in linear time`, () => {
       const start = performance.now();

@@ -1,10 +1,6 @@
-// What a read must not put in front of the model: the sandbox decides what a
-// read can open, not whether printing it is fine, and the classifier judges
-// that case by case where the read lane would not.
-
-// Command text that names secret material sends a read to the classifier.
-export const SECRET_WORDS =
-  /api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key|bearer|authorization|credential|cookie/i;
+// What the output of a call the plugin allowed must not put in front of the
+// model. The judge decides before the call runs and cannot see what it will
+// print, and the classifier, which weighs that, never saw the call.
 
 // Every quantifier that could start at each character of a long run is
 // bounded or stops at the end of its line, so a scan stays linear on a large
@@ -47,6 +43,16 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
     ),
   ],
   ['bearer token', new RegExp(String.raw`\bbearer\s+${value(20, true)}`, 'i')],
+  // A session cookie, such as `sessionid=...` or `connect.sid=...`, whose
+  // value may be percent-encoded. A bare UUID is left out: tools print
+  // session ids that grant nothing.
+  [
+    'session cookie',
+    new RegExp(
+      String.raw`(?:sess|(?<![a-z])sid)[\w.-]{0,40}=(?![\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}(?![%\w./+=~-]))(?=[%\w./+=~-]{0,256}\d)(?=[%\w./+=~-]{0,256}[a-z])[%\w./+=~-]{16,}`,
+      'i',
+    ),
+  ],
   [
     'secret assignment',
     new RegExp(String.raw`${SECRET_NAME}["']?\s*[:=]\s*["']?${value(16)}`, 'i'),
@@ -63,7 +69,7 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
   ['registry credential', /"auth"\s*:\s*"[A-Za-z0-9+/]{16,}={0,2}"/],
 ];
 
-// The kind of the first credential-shaped value in a command's output.
+// The kind of credential-shaped value the output holds, in SECRET_SHAPES order.
 export function findSecret(text: string): string | undefined {
   return SECRET_SHAPES.find(([, shape]) => shape.test(text))?.[0];
 }
