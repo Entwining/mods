@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "no-useless-catch": "error",
+    "typescript/no-extraneous-class": "error",
+    "unicorn/no-useless-fallback-in-spread": "error",
+    "unicorn/prefer-structured-clone": "error"
+  }
+}

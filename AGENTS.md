@@ -8,12 +8,20 @@ This repository is the `entwining-mods` Claude Code marketplace. Each mod is a p
 - An install copies only the plugin folder, so anything a mod needs at run time or a user needs to read stays inside it.
 - `plugins/<mod>/.claude-plugin/types/` is written by the engine when it loads the mod and holds the machine's MCP tool list; it stays untracked.
 
+## Code
+
+- Use what the mods API, Bun, or the standard library already provides before writing a helper, and add no type, wrapper, or abstraction whose only purpose is to look tidy.
+- A guard, fallback, or `catch` handles an observed failure or a documented engine behavior, and comes with the test the Checks section asks for; otherwise leave it out.
+- Comments state the reason the code cannot show, not what it does or what it replaced.
+- `.oxlintrc.json` enforces the cases of these that a lint rule can catch.
+
 ## Checks
 
 `bun run check` runs what CI runs: `oxfmt --check`, `oxlint`, `claude plugin validate` for the marketplace and each plugin, and `claude plugin test`. `bun run typecheck` needs the generated types (see the README) and does not run in CI.
 
 - Tests use synthetic inputs only. This repository is public: no transcripts, logs, real repository names, hostnames, or credentials. Build credential-shaped test strings at run time, such as `` `ghp_${'x'.repeat(36)}` ``, so the source does not look like a leaked key.
 - Every safeguard has a test that fails when the safeguard is removed. After adding or changing one, remove it, watch a test fail, and restore it.
+- Each test covers a behavior no other test fails on; merge or delete one that fails on the same bug as another, and delete one whose behavior the code no longer has.
 
 ## Commits and releases
 
