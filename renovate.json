@@ -1,10 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "schedule:weekly"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "schedule:daily"],
   "timezone": "Asia/Singapore",
   "description": [
     "main has no required status checks, so platformAutomerge stays false and Renovate waits for PR checks before merging.",
-    "This repository writes type-prefixed commit subjects itself, so Renovate follows the same convention."
+    "This repository writes type-prefixed commit subjects itself, so Renovate follows the same convention.",
+    "Claude Code releases most days, so updates are checked daily, and its non-major updates go with the routine group like any other dependency."
   ],
   "semanticCommits": "enabled",
   "updateNotScheduled": false,
@@ -18,12 +19,6 @@
       "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
       "groupName": "Routine dependencies",
       "automerge": true
-    },
-    {
-      "description": "The engine package is the hook API the tests run against; review each engine upgrade separately.",
-      "matchPackageNames": ["@anthropic-ai/claude-code"],
-      "groupName": null,
-      "automerge": false
     }
   ]
 }

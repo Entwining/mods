@@ -24,7 +24,7 @@ bun run check   # format check, lint, plugin validation, tests
 bun run fmt     # format in place
 ```
 
-To run a mod from this checkout, start a session with `claude --plugin-dir plugins/<mod>`. That session also writes the mod's generated types to `plugins/<mod>/.claude-plugin/types/`, after which `bun run typecheck` type-checks it. The types are those of the engine running the session, as the first line of `claude-code/index.d.ts` there says, so start it with `bunx claude` to check against the pinned version. CI cannot generate those types, so run the type check yourself after bumping the pinned `@anthropic-ai/claude-code`.
+To run a mod from this checkout, start a session with `bunx claude --plugin-dir plugins/<mod>`, which runs the pinned engine. That session writes the mod's generated types to `plugins/<mod>/.claude-plugin/types/`, where the first line of `claude-code/index.d.ts` names the engine that wrote them, and `bun run typecheck` then checks the mod against them. CI cannot generate these types, so the type check runs only on your machine.
 
 ## License
 
