@@ -2,11 +2,11 @@
 
 import type { EngineInterface } from 'claude-code';
 
-// The user's own messages and answers to the agent's questions as the judge
-// reads them: the first, which often sets the task, then the newest that fit,
+// The user's own messages and answers to the agent's questions as the plugin
+// keeps them: the first, which often sets the task, then the newest that fit,
 // each clipped to its head and tail; `leftOut` counts the messages between.
-// `addTurn` keeps a conversation in this form, so it never holds more than
-// the judge reads.
+// `addTurn` keeps a conversation in this form, so it stays bounded, and
+// `selectWords` chooses from it what the judge reads for each call.
 export type UserWords = { turns: readonly string[]; leftOut: number };
 
 export const NO_WORDS: UserWords = { turns: [], leftOut: 0 };
@@ -15,8 +15,8 @@ export const NO_WORDS: UserWords = { turns: [], leftOut: 0 };
 // `JUDGE_SYSTEM` names it to say how a chosen option authorizes.
 export const ANSWER_PREFIX = "Answer to the agent's question: ";
 
-const TURN_CHARS = 4000;
-const TURNS_CHARS = 24_000;
+const TURN_CHARS = 16_000;
+const TURNS_CHARS = 64_000;
 
 // The head and tail of a long text, which hold a message's request and its
 // last word.
@@ -28,20 +28,33 @@ export function clip(text: string, max: number): string {
 }
 
 // A turn's size as JSON text, which is what the store counts against its
-// limit and the judge's prompt carries: a character JSON escapes counts as
-// up to six, so a kept conversation stays bounded whatever it holds.
+// limit: a character JSON escapes counts as up to six, so a kept conversation
+// stays bounded whatever it holds.
 const size = (turn: string) => JSON.stringify(turn).length;
 
+// A message clipped until its JSON text fits `TURN_CHARS`, so the first
+// message always leaves room for the newest.
+function clipTurn(text: string): string {
+  let max = TURN_CHARS;
+  let turn = clip(text, max);
+  while (size(turn) > TURN_CHARS) {
+    max = Math.floor((max * TURN_CHARS) / size(turn));
+    turn = clip(text, max);
+  }
+  return turn;
+}
+
 export function addTurn(words: UserWords, text: string): UserWords {
-  const [first, ...rest] = [...words.turns, clip(text, TURN_CHARS)];
+  const [first, ...rest] = [...words.turns, clipTurn(text)];
   let room = TURNS_CHARS - size(first!);
 
-  // The newest message stays even when the first leaves no room for it.
+  // Each kept turn also costs the comma that separates it, so many short
+  // messages stay within the bound too.
   const newest: string[] = [];
   for (const turn of rest.toReversed()) {
-    if (newest.length > 0 && size(turn) > room) break;
+    if (size(turn) + 1 > room) break;
     newest.unshift(turn);
-    room -= size(turn);
+    room -= size(turn) + 1;
   }
 
   return { turns: [first!, ...newest], leftOut: words.leftOut + rest.length - newest.length };
@@ -52,7 +65,7 @@ export function addTurn(words: UserWords, text: string): UserWords {
 // process, and `/clear` goes on under a new id that holds none.
 const TURNS_KEY = 'turns:';
 // The conversations written in least recently go first. Each is bounded by
-// what the judge reads, so this many stay well under the store's limit.
+// `TURNS_CHARS`, so this many stay under the store's limit.
 const KEPT_CONVERSATIONS = 50;
 
 // `at` orders the conversations: the store keeps keys in the order they were

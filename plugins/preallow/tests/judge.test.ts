@@ -50,19 +50,6 @@ describe('judgePrompt', () => {
     ).toEqual({ user_messages: [], cwd: '/w', tool: 'Bash', input: {}, facts });
   });
 
-  test('a long conversation keeps its first message and the newest that fit', () => {
-    const turns = ['the task', ...Array.from({ length: 20 }, (_, i) => `${i}`.padEnd(3000, '.'))];
-    const conversation = words(...turns);
-    expect(conversation.turns).toEqual([turns[0], ...turns.slice(-7)]);
-    const prompt = JSON.parse(judgePrompt({ tool: 'Bash', input: {}, words: conversation }));
-    expect(prompt.user_messages.slice(0, 2)).toEqual([
-      'the task',
-      '[13 earlier messages left out]',
-    ]);
-    expect(prompt.user_messages.at(-1)).toBe(turns.at(-1));
-    expect(JSON.stringify(prompt.user_messages).length).toBeLessThan(26_000);
-  });
-
   test('a long message or brief keeps its head and tail, and the input stays whole', () => {
     const long = `HEAD${'x'.repeat(20_000)}TAIL`;
     const prompt = JSON.parse(

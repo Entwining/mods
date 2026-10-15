@@ -108,12 +108,17 @@ describe('what the judge reads', () => {
   });
 
   test('characters JSON escapes count as stored, so 50 conversations fit, and the newest message stays', () => {
-    const escaped = '\u0001'.repeat(10_000);
+    const escaped = '\u0001'.repeat(16_000);
     const conversation = [...Array<string>(6).fill(escaped), 'do not push'].reduce(
       addTurn,
       NO_WORDS,
     );
     expect(conversation.turns.at(-1)).toBe('do not push');
+    expect(JSON.stringify(conversation).length * 50).toBeLessThan(4 * 1024 * 1024);
+  });
+
+  test('a conversation of many short messages stays within its bound', () => {
+    const conversation = addTurn({ turns: Array<string>(30_000).fill('y'), leftOut: 0 }, 'y');
     expect(JSON.stringify(conversation).length * 50).toBeLessThan(4 * 1024 * 1024);
   });
 

@@ -8,6 +8,7 @@ import type { EngineInterface, ModelEffort } from 'claude-code';
 import { gatherFacts, type FactRequest } from './facts.ts';
 import { JUDGE_SYSTEM } from './policy.ts';
 import { parseVerdict, type Reply } from './verdict.ts';
+import { selectWords } from './select.ts';
 import { clip, userWords, type UserWords } from './words.ts';
 
 export type JudgeCase = {
@@ -43,15 +44,10 @@ const BRIEF_CHARS = 8000;
 // A judge that has not answered by then sends the call to the classifier.
 const JUDGE_TIMEOUT_MS = 90_000;
 
-function userMessages({ turns: [first, ...newest], leftOut }: UserWords): string[] {
-  if (first === undefined) return [];
-  return [first, ...(leftOut > 0 ? [`[${leftOut} earlier messages left out]`] : []), ...newest];
-}
-
 export function judgePrompt(call: JudgeCase): string {
   return JSON.stringify(
     {
-      user_messages: userMessages(call.words),
+      user_messages: selectWords(call.words, `${call.tool} ${JSON.stringify(call.input)}`),
       ...(call.brief === undefined ? {} : { subagent_brief: clip(call.brief, BRIEF_CHARS) }),
       cwd: call.cwd,
       tool: call.tool,
