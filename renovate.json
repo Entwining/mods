@@ -5,7 +5,8 @@
   "description": [
     "main has no required status checks, so platformAutomerge stays false and Renovate waits for PR checks before merging.",
     "This repository writes type-prefixed commit subjects itself, so Renovate follows the same convention.",
-    "Claude Code releases most days, so updates are checked daily, and its non-major updates go with the routine group like any other dependency."
+    "Claude Code releases most days, so updates are checked daily, and its non-major updates go with the routine group like any other dependency.",
+    "The gitleaks release that scripts/gitleaks.ts pins is updated on its own branch, since CI fails until someone runs `bun run gitleaks` there."
   ],
   "semanticCommits": "enabled",
   "updateNotScheduled": false,
@@ -18,7 +19,17 @@
       "description": "Group and automerge non-major dependency updates after checks pass.",
       "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
       "groupName": "Routine dependencies",
-      "automerge": true
+      "automerge": true,
+      "matchDepNames": ["!gitleaks/gitleaks"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/gitleaks\\.ts$/"],
+      "matchStrings": ["const VERSION = '(?<currentValue>v[^']+)';"],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-releases"
     }
   ]
 }

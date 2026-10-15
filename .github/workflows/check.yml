@@ -24,3 +24,6 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - run: bun install --frozen-lockfile
       - run: bun run check
+      # Renovate updates the gitleaks release the script pins but cannot
+      # regenerate its rules.
+      - run: bun run gitleaks && git diff --exit-code -- plugins/preallow/hooks/gitleaks.generated.ts
