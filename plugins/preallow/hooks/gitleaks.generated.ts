@@ -51,6 +51,7 @@ export const rules = [
       '\\bA3-[A-Z0-9]{6}-(?:(?:[A-Z0-9]{11})|(?:[A-Z0-9]{6}-[A-Z0-9]{5}))-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\\b',
     keywords: ['a3-'],
     entropy: 3.8,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -58,6 +59,25 @@ export const rules = [
     regex: 'ops_eyJ[a-zA-Z0-9+/]{250,}={0,3}',
     keywords: ['ops_'],
     entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'adafruit-api-key',
+    regex:
+      '(?i:(?:adafruit)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9_-]{32})(?![\\w-]))',
+    keywords: ['adafruit'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'adobe-client-id',
+    regex:
+      '(?i:(?:adobe)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{32})(?![\\w-]))',
+    keywords: ['adobe'],
+    entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -65,6 +85,7 @@ export const rules = [
     regex: '\\b(p8e-(?i:[a-z0-9]{32}))(?![\\w-])',
     keywords: ['p8e-'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -72,6 +93,16 @@ export const rules = [
     regex: 'AGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}',
     keywords: ['age-secret-key-1'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'airtable-api-key',
+    regex:
+      '(?i:(?:airtable)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{17})(?![\\w-]))',
+    keywords: ['airtable'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -79,6 +110,16 @@ export const rules = [
     regex: '\\b(pat[A-Za-z0-9]{14}\\.[a-f0-9]{64})\\b',
     keywords: ['airtable'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'algolia-api-key',
+    regex:
+      '(?i:(?:algolia)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['algolia'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -86,6 +127,16 @@ export const rules = [
     regex: '\\b(LTAI(?i:[a-z0-9]{20}))(?![\\w-])',
     keywords: ['ltai'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'alibaba-secret-key',
+    regex:
+      '(?i:(?:alibaba)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{30})(?![\\w-]))',
+    keywords: ['alibaba'],
+    entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -93,6 +144,7 @@ export const rules = [
     regex: '\\b(sk-ant-admin01-[a-zA-Z0-9_\\-]{93}AA)(?![\\w-])',
     keywords: ['sk-ant-admin01'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -100,6 +152,7 @@ export const rules = [
     regex: '\\b(sk-ant-api03-[a-zA-Z0-9_\\-]{93}AA)(?![\\w-])',
     keywords: ['sk-ant-api03'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -107,6 +160,7 @@ export const rules = [
     regex: '\\bAKCp[A-Za-z0-9]{69}\\b',
     keywords: ['akcp'],
     entropy: 4.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -114,13 +168,34 @@ export const rules = [
     regex: '\\bcmVmd[A-Za-z0-9]{59}\\b',
     keywords: ['cmvmd'],
     entropy: 4.5,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'asana-client-id',
+    regex:
+      '(?i:(?:asana)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9]{16})(?![\\w-]))',
+    keywords: ['asana'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'asana-client-secret',
+    regex:
+      '(?i:(?:asana)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['asana'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
     id: 'atlassian-api-token',
-    regex: '(?i:\\b(ATATT3[A-Za-z0-9_\\-=]{186})(?![\\w-]))',
+    regex:
+      '(?i:(?:(?-i:ATLASSIAN|[Aa]tlassian)|(?-i:CONFLUENCE|[Cc]onfluence)|(?-i:JIRA|[Jj]ira))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{20}[a-f0-9]{4})(?![\\w-]))|(?i:\\b(ATATT3[A-Za-z0-9_\\-=]{186})(?![\\w-]))',
     keywords: ['atlassian', 'confluence', 'jira', 'atatt3'],
     entropy: 3.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -129,6 +204,7 @@ export const rules = [
       '\\b((?:sc|ext|scauth|authress)_(?i:[a-z0-9]{5,30}\\.[a-z0-9]{4,6}\\.(?-i:acc)[_-][a-z0-9-]{10,32}\\.[a-z0-9+/_=-]{30,120}))(?![\\w-])',
     keywords: ['sc_', 'ext_', 'scauth_', 'authress_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -136,6 +212,7 @@ export const rules = [
     regex: '\\b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16})\\b',
     keywords: ['a3t', 'akia', 'asia', 'abia', 'acca'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [{ regexTarget: 'secret', regexes: ['.+EXAMPLE$'], stopwords: [] }],
   },
   {
@@ -143,6 +220,7 @@ export const rules = [
     regex: '\\b(ABSK[A-Za-z0-9+/]{109,269}={0,2})(?![\\w-])',
     keywords: ['absk'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -150,6 +228,7 @@ export const rules = [
     regex: 'bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t',
     keywords: ['bedrock-api-key-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -158,6 +237,61 @@ export const rules = [
       '(?:^|[\\\\\'"\\x60\\s>=:(,)])([a-zA-Z0-9_~.]{3}\\dQ~[a-zA-Z0-9_~.-]{31,34})(?:$|[\\\\\'"\\x60\\s<),])',
     keywords: ['q~'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'beamer-api-token',
+    regex:
+      '(?i:(?:beamer)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(b_[a-z0-9=_\\-]{44})(?![\\w-]))',
+    keywords: ['beamer'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'bitbucket-client-id',
+    regex:
+      '(?i:(?:bitbucket)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['bitbucket'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'bitbucket-client-secret',
+    regex:
+      '(?i:(?:bitbucket)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{64})(?![\\w-]))',
+    keywords: ['bitbucket'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'bittrex-access-key',
+    regex:
+      '(?i:(?:bittrex)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['bittrex'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'bittrex-secret-key',
+    regex:
+      '(?i:(?:bittrex)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['bittrex'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'cisco-meraki-api-key',
+    regex:
+      '(?i:(?:(?-i:[Mm]eraki|MERAKI))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{40})(?![\\w-])',
+    keywords: ['meraki'],
+    entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -165,6 +299,7 @@ export const rules = [
     regex: '\\b(4b1d[A-Za-z0-9]{38})\\b',
     keywords: ['4b1d'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -172,6 +307,25 @@ export const rules = [
     regex: '(?i:CLOJARS_[a-z0-9]{60})',
     keywords: ['clojars_'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'cloudflare-api-key',
+    regex:
+      '(?i:(?:cloudflare)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9_-]{40})(?![\\w-]))',
+    keywords: ['cloudflare'],
+    entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'cloudflare-global-api-key',
+    regex:
+      '(?i:(?:cloudflare)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{37})(?![\\w-]))',
+    keywords: ['cloudflare'],
+    entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -179,6 +333,61 @@ export const rules = [
     regex: '\\b(v1\\.0-[a-f0-9]{24}-[a-f0-9]{146})(?![\\w-])',
     keywords: ['cloudflare', 'v1.0-'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'codecov-access-token',
+    regex:
+      '(?i:(?:codecov)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['codecov'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'cohere-api-token',
+    regex:
+      '(?i:(?:cohere|CO_API_KEY)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-zA-Z0-9]{40})(?![\\w-])',
+    keywords: ['cohere', 'co_api_key'],
+    entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'coinbase-access-token',
+    regex:
+      '(?i:(?:coinbase)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9_-]{64})(?![\\w-]))',
+    keywords: ['coinbase'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'confluent-access-token',
+    regex:
+      '(?i:(?:confluent)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{16})(?![\\w-]))',
+    keywords: ['confluent'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'confluent-secret-key',
+    regex:
+      '(?i:(?:confluent)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{64})(?![\\w-]))',
+    keywords: ['confluent'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'contentful-delivery-api-token',
+    regex:
+      '(?i:(?:contentful)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{43})(?![\\w-]))',
+    keywords: ['contentful'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -187,6 +396,7 @@ export const rules = [
       '\\bcurl\\b(?:.*?|.*?(?:[\\r\\n]{1,2}.*?){1,5})[ \\t\\n\\r](?:-H|--header)(?:=|[ \\t]{0,5})(?:"(?i:(?:Authorization:[ \\t]{0,5}(?:Basic[ \\t]([a-z0-9+/]{8,}={0,3})|(?:Bearer|(?:Api-)?Token)[ \\t]([\\w=~@.+/-]{8,})|([\\w=~@.+/-]{8,}))|(?:(?:X-(?:[a-z]+-)?)?(?:Api-?)?(?:Key|Token)):[ \\t]{0,5}([\\w=~@.+/-]{8,}))")|(?i:\'(?i:(?:Authorization:[ \\t]{0,5}(?:Basic[ \\t]([a-z0-9+/]{8,}={0,3})|(?:Bearer|(?:Api-)?Token)[ \\t]([\\w=~@.+/-]{8,})|([\\w=~@.+/-]{8,}))|(?:(?:X-(?:[a-z]+-)?)?(?:Api-?)?(?:Key|Token)):[ \\t]{0,5}([\\w=~@.+/-]{8,}))\')))(?:\\B|\\s|$)',
     keywords: ['curl'],
     entropy: 2.75,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -195,6 +405,7 @@ export const rules = [
       '\\bcurl\\b(?:.*|.*(?:[\\r\\n]{1,2}.*){1,5})[ \\t\\n\\r](?:-u|--user)(?:=|[ \\t]{0,5})("(:[^"]{3,}|[^:"]{3,}:|[^:"]{3,}:[^"]{3,})"|\'([^:\']{3,}:[^\']{3,})\'|((?:"[^"]{3,}"|\'[^\']{3,}\'|[\\w$@.-]+):(?:"[^"]{3,}"|\'[^\']{3,}\'|[\\w${}@.-]+)))(?:\\s|$)',
     keywords: ['curl'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [
       {
         regexTarget: 'secret',
@@ -215,6 +426,25 @@ export const rules = [
     regex: '\\b(dapi[a-f0-9]{32}(?:-\\d)?)(?![\\w-])',
     keywords: ['dapi'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'datadog-access-token',
+    regex:
+      '(?i:(?:datadog)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{40})(?![\\w-]))',
+    keywords: ['datadog'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'defined-networking-api-token',
+    regex:
+      '(?i:(?:dnkey)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(dnkey-[a-z0-9=_\\-]{26}-[a-z0-9=_\\-]{52})(?![\\w-]))',
+    keywords: ['dnkey'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -222,6 +452,7 @@ export const rules = [
     regex: '\\b(doo_v1_[a-f0-9]{64})(?![\\w-])',
     keywords: ['doo_v1_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -229,6 +460,7 @@ export const rules = [
     regex: '\\b(dop_v1_[a-f0-9]{64})(?![\\w-])',
     keywords: ['dop_v1_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -236,6 +468,34 @@ export const rules = [
     regex: '(?i:\\b(dor_v1_[a-f0-9]{64})(?![\\w-]))',
     keywords: ['dor_v1_'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'discord-api-token',
+    regex:
+      '(?i:(?:discord)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{64})(?![\\w-]))',
+    keywords: ['discord'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'discord-client-id',
+    regex:
+      '(?i:(?:discord)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9]{18})(?![\\w-]))',
+    keywords: ['discord'],
+    entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'discord-client-secret',
+    regex:
+      '(?i:(?:discord)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{32})(?![\\w-]))',
+    keywords: ['discord'],
+    entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -243,6 +503,43 @@ export const rules = [
     regex: 'dp\\.pt\\.(?i:[a-z0-9]{43})',
     keywords: ['dp.pt.'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'droneci-access-token',
+    regex:
+      '(?i:(?:droneci)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['droneci'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'dropbox-api-token',
+    regex:
+      '(?i:(?:dropbox)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{15})(?![\\w-]))',
+    keywords: ['dropbox'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'dropbox-long-lived-api-token',
+    regex:
+      '(?i:(?:dropbox)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{11}(AAAAAAAAAA)[a-z0-9\\-_=]{43})(?![\\w-]))',
+    keywords: ['dropbox'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'dropbox-short-lived-api-token',
+    regex:
+      '(?i:(?:dropbox)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(sl\\.[a-z0-9\\-=_]{135})(?![\\w-]))',
+    keywords: ['dropbox'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -250,6 +547,7 @@ export const rules = [
     regex: 'duffel_(?:test|live)_(?i:[a-z0-9_\\-=]{43})',
     keywords: ['duffel_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -257,6 +555,7 @@ export const rules = [
     regex: 'dt0c01\\.(?i:[a-z0-9]{24}\\.[a-z0-9]{64})',
     keywords: ['dt0c01.'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -264,6 +563,7 @@ export const rules = [
     regex: '\\bEZAK(?i:[a-z0-9]{54}\\b)',
     keywords: ['ezak'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -271,6 +571,16 @@ export const rules = [
     regex: '\\bEZTK(?i:[a-z0-9]{54}\\b)',
     keywords: ['eztk'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'etsy-access-token',
+    regex:
+      '(?i:(?:(?-i:ETSY|[Ee]tsy))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{24})(?![\\w-]))',
+    keywords: ['etsy'],
+    entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -278,6 +588,7 @@ export const rules = [
     regex: '(?i:\\b(\\d{15,16}(\\||%)[0-9a-z\\-_]{27,40})(?![\\w-]))',
     keywords: ['facebook'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -285,6 +596,61 @@ export const rules = [
     regex: '\\b(EAA[MC](?i:[a-z0-9]{100,}))(?![\\w-])',
     keywords: ['eaam', 'eaac'],
     entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'facebook-secret',
+    regex:
+      '(?i:(?:facebook)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{32})(?![\\w-]))',
+    keywords: ['facebook'],
+    entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'fastly-api-token',
+    regex:
+      '(?i:(?:fastly)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{32})(?![\\w-]))',
+    keywords: ['fastly'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'finicity-api-token',
+    regex:
+      '(?i:(?:finicity)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{32})(?![\\w-]))',
+    keywords: ['finicity'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'finicity-client-secret',
+    regex:
+      '(?i:(?:finicity)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{20})(?![\\w-]))',
+    keywords: ['finicity'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'finnhub-access-token',
+    regex:
+      '(?i:(?:finnhub)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{20})(?![\\w-]))',
+    keywords: ['finnhub'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'flickr-access-token',
+    regex:
+      '(?i:(?:flickr)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-]))',
+    keywords: ['flickr'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -292,6 +658,7 @@ export const rules = [
     regex: 'FLWSECK_TEST-(?i:[a-h0-9]{12})',
     keywords: ['flwseck_test'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -299,6 +666,7 @@ export const rules = [
     regex: 'FLWPUBK_TEST-(?i:[a-h0-9]{32}-X)',
     keywords: ['flwpubk_test'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -306,6 +674,7 @@ export const rules = [
     regex: 'FLWSECK_TEST-(?i:[a-h0-9]{32}-X)',
     keywords: ['flwseck_test'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -314,6 +683,7 @@ export const rules = [
       '\\b((?:fo1_[\\w-]{43}|fm1[ar]_[a-zA-Z0-9+\\/]{100,}={0,3}|fm2_[a-zA-Z0-9+\\/]{100,}={0,3}))(?![\\w-])',
     keywords: ['fo1_', 'fm1', 'fm2_'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -321,6 +691,7 @@ export const rules = [
     regex: 'fio-u-(?i:[a-z0-9\\-_=]{64})',
     keywords: ['fio-u-'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -328,6 +699,16 @@ export const rules = [
     regex: '(?i:["\']secret_key["\']\\s*=>\\s*["\'](sk_[\\S]{29})["\'])',
     keywords: ['secret_key'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'freshbooks-access-token',
+    regex:
+      '(?i:(?:freshbooks)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{64})(?![\\w-]))',
+    keywords: ['freshbooks'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -335,6 +716,7 @@ export const rules = [
     regex: '\\b(AIza[\\w-]{35})(?![\\w-])',
     keywords: ['aiza'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -342,6 +724,7 @@ export const rules = [
     regex: '(?:ghu|ghs)_[0-9a-zA-Z]{36}',
     keywords: ['ghu_', 'ghs_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -349,6 +732,7 @@ export const rules = [
     regex: 'github_pat_\\w{82}',
     keywords: ['github_pat_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -356,6 +740,7 @@ export const rules = [
     regex: 'gho_[0-9a-zA-Z]{36}',
     keywords: ['gho_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -363,6 +748,7 @@ export const rules = [
     regex: 'ghp_[0-9a-zA-Z]{36}',
     keywords: ['ghp_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -370,6 +756,7 @@ export const rules = [
     regex: 'ghr_[0-9a-zA-Z]{36}',
     keywords: ['ghr_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -377,6 +764,7 @@ export const rules = [
     regex: 'glcbt-[0-9a-zA-Z]{1,5}_[0-9a-zA-Z_-]{20}',
     keywords: ['glcbt-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -384,6 +772,7 @@ export const rules = [
     regex: 'gldt-[0-9a-zA-Z_\\-]{20}',
     keywords: ['gldt-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -391,6 +780,7 @@ export const rules = [
     regex: 'glffct-[0-9a-zA-Z_\\-]{20}',
     keywords: ['glffct-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -398,6 +788,7 @@ export const rules = [
     regex: 'glft-[0-9a-zA-Z_\\-]{20}',
     keywords: ['glft-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -405,6 +796,7 @@ export const rules = [
     regex: 'glimt-[0-9a-zA-Z_\\-]{25}',
     keywords: ['glimt-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -412,6 +804,7 @@ export const rules = [
     regex: 'glagent-[0-9a-zA-Z_\\-]{50}',
     keywords: ['glagent-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -419,14 +812,23 @@ export const rules = [
     regex: 'gloas-[0-9a-zA-Z_\\-]{64}',
     keywords: ['gloas-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
-  { id: 'gitlab-pat', regex: 'glpat-[\\w-]{20}', keywords: ['glpat-'], entropy: 3, allowlists: [] },
+  {
+    id: 'gitlab-pat',
+    regex: 'glpat-[\\w-]{20}',
+    keywords: ['glpat-'],
+    entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
   {
     id: 'gitlab-pat-routable',
     regex: '\\bglpat-[0-9a-zA-Z_-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}\\b',
     keywords: ['glpat-'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -434,6 +836,7 @@ export const rules = [
     regex: 'glptt-[0-9a-f]{40}',
     keywords: ['glptt-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -441,6 +844,7 @@ export const rules = [
     regex: 'GR1348941[\\w-]{20}',
     keywords: ['gr1348941'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -448,6 +852,7 @@ export const rules = [
     regex: 'glrt-[0-9a-zA-Z_\\-]{20}',
     keywords: ['glrt-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -455,6 +860,7 @@ export const rules = [
     regex: '\\bglrt-t\\d_[0-9a-zA-Z_\\-]{27,300}\\.[0-9a-z]{2}[0-9a-z]{7}\\b',
     keywords: ['glrt-'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -462,6 +868,7 @@ export const rules = [
     regex: 'glsoat-[0-9a-zA-Z_\\-]{20}',
     keywords: ['glsoat-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -469,6 +876,25 @@ export const rules = [
     regex: '_gitlab_session=[0-9a-z]{32}',
     keywords: ['_gitlab_session='],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'gitter-access-token',
+    regex:
+      '(?i:(?:gitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9_-]{40})(?![\\w-]))',
+    keywords: ['gitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'gocardless-api-token',
+    regex:
+      '(?i:(?:gocardless)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(live_(?i:[a-z0-9\\-_=]{40}))(?![\\w-]))',
+    keywords: ['live_', 'gocardless'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -476,6 +902,7 @@ export const rules = [
     regex: '(?i:\\b(eyJrIjoi[A-Za-z0-9]{70,400}={0,3})(?![\\w-]))',
     keywords: ['eyjrijoi'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -483,6 +910,7 @@ export const rules = [
     regex: '(?i:\\b(glc_[A-Za-z0-9+/]{32,400}={0,3})(?![\\w-]))',
     keywords: ['glc_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -490,6 +918,7 @@ export const rules = [
     regex: '(?i:\\b(glsa_[A-Za-z0-9]{32}_[A-Fa-f0-9]{8})(?![\\w-]))',
     keywords: ['glsa_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -497,6 +926,7 @@ export const rules = [
     regex: '(?:pat|sat)\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9]{24}\\.[a-zA-Z0-9]{20}',
     keywords: ['pat.', 'sat.'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -504,6 +934,16 @@ export const rules = [
     regex: '(?i:[a-z0-9]{14}\\.(?-i:atlasv1)\\.[a-z0-9\\-_=]{60,70})',
     keywords: ['atlasv1'],
     entropy: 3.5,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'heroku-api-key',
+    regex:
+      '(?i:(?:heroku)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['heroku'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -511,6 +951,16 @@ export const rules = [
     regex: '\\b((HRKU-AA[0-9a-zA-Z_-]{58}))(?![\\w-])',
     keywords: ['hrku-aa'],
     entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'hubspot-api-key',
+    regex:
+      '(?i:(?:hubspot)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})(?![\\w-]))',
+    keywords: ['hubspot'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -518,6 +968,7 @@ export const rules = [
     regex: '\\b(hf_(?i:[a-z]{34}))(?![\\w-])',
     keywords: ['hf_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -525,6 +976,7 @@ export const rules = [
     regex: '\\b(api_org_(?i:[a-z]{34}))(?![\\w-])',
     keywords: ['api_org_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -532,6 +984,16 @@ export const rules = [
     regex: '\\b(ico-[a-zA-Z0-9]{32})(?![\\w-])',
     keywords: ['ico-'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'intercom-api-key',
+    regex:
+      '(?i:(?:intercom)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{60})(?![\\w-]))',
+    keywords: ['intercom'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -539,6 +1001,25 @@ export const rules = [
     regex: '\\b(s-s4t2(?:ud|af)-(?i:[abcdef0123456789]{64}))(?![\\w-])',
     keywords: ['intra', 's-s4t2ud-', 's-s4t2af-'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'jfrog-api-key',
+    regex:
+      '(?i:(?:jfrog|artifactory|bintray|xray)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{73})(?![\\w-]))',
+    keywords: ['jfrog', 'artifactory', 'bintray', 'xray'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'jfrog-identity-token',
+    regex:
+      '(?i:(?:jfrog|artifactory|bintray|xray)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{64})(?![\\w-]))',
+    keywords: ['jfrog', 'artifactory', 'bintray', 'xray'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -547,6 +1028,7 @@ export const rules = [
       '\\b(ey[a-zA-Z0-9]{17,}\\.ey[a-zA-Z0-9\\/\\\\_-]{17,}\\.(?:[a-zA-Z0-9\\/\\\\_-]{10,}={0,2})?)(?![\\w-])',
     keywords: ['ey'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -555,6 +1037,16 @@ export const rules = [
       '\\bZXlK(?:(?<alg>aGJHY2lPaU)|(?<apu>aGNIVWlPaU)|(?<apv>aGNIWWlPaU)|(?<aud>aGRXUWlPaU)|(?<b64>aU5qUWlP)|(?<crit>amNtbDBJanBi)|(?<cty>amRIa2lPaU)|(?<epk>bGNHc2lPbn)|(?<enc>bGJtTWlPaU)|(?<jku>cWEzVWlPaU)|(?<jwk>cWQyc2lPb)|(?<iss>cGMzTWlPaU)|(?<iv>cGRpSTZJ)|(?<kid>cmFXUWlP)|(?<key_ops>clpYbGZiM0J6SWpwY)|(?<kty>cmRIa2lPaUp)|(?<nonce>dWIyNWpaU0k2)|(?<p2c>d01tTWlP)|(?<p2s>d01uTWlPaU)|(?<ppt>d2NIUWlPaU)|(?<sub>emRXSWlPaU)|(?<svt>emRuUWlP)|(?<tag>MFlXY2lPaU)|(?<typ>MGVYQWlPaUp)|(?<url>MWNtd2l)|(?<use>MWMyVWlPaUp)|(?<ver>MlpYSWlPaU)|(?<version>MlpYSnphVzl1SWpv)|(?<x>NElqb2)|(?<x5c>NE5XTWlP)|(?<x5t>NE5YUWlPaU)|(?<x5ts256>NE5YUWpVekkxTmlJNkl)|(?<x5u>NE5YVWlPaU)|(?<zip>NmFYQWlPaU))[a-zA-Z0-9\\/\\\\_+\\-\\r\\n]{40,}={0,2}',
     keywords: ['zxlk'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'kraken-access-token',
+    regex:
+      '(?i:(?:kraken)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9\\/=_\\+\\-]{80,90})(?![\\w-]))',
+    keywords: ['kraken'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -563,6 +1055,7 @@ export const rules = [
       '(?i:(?:\\bkind:[ \\t]*["\']?\\bsecret\\b["\']?(?s:.){0,200}?\\bdata:(?s:.){0,100}?\\s+([\\w.-]+:(?:[ \\t]*(?:\\||>[-+]?)\\s+)?[ \\t]*(?:["\']?[a-z0-9+/]{10,}={0,3}["\']?|\\{\\{[ \\t\\w"|$:=,.-]+}}|""|\'\'))|\\bdata:(?s:.){0,100}?\\s+([\\w.-]+:(?:[ \\t]*(?:\\||>[-+]?)\\s+)?[ \\t]*(?:["\']?[a-z0-9+/]{10,}={0,3}["\']?|\\{\\{[ \\t\\w"|$:=,.-]+}}|""|\'\'))(?s:.){0,200}?\\bkind:[ \\t]*["\']?\\bsecret\\b["\']?))',
     keywords: ['secret'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [
       {
         regexTarget: 'secret',
@@ -579,10 +1072,155 @@ export const rules = [
     ],
   },
   {
+    id: 'kucoin-access-token',
+    regex:
+      '(?i:(?:kucoin)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{24})(?![\\w-]))',
+    keywords: ['kucoin'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'kucoin-secret-key',
+    regex:
+      '(?i:(?:kucoin)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['kucoin'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'launchdarkly-access-token',
+    regex:
+      '(?i:(?:launchdarkly)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{40})(?![\\w-]))',
+    keywords: ['launchdarkly'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
     id: 'linear-api-key',
     regex: 'lin_api_(?i:[a-z0-9]{40})',
     keywords: ['lin_api_'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'linear-client-secret',
+    regex:
+      '(?i:(?:linear)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{32})(?![\\w-]))',
+    keywords: ['linear'],
+    entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'linkedin-client-id',
+    regex:
+      '(?i:(?:linked[_-]?in)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{14})(?![\\w-]))',
+    keywords: ['linkedin', 'linked_in', 'linked-in'],
+    entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'linkedin-client-secret',
+    regex:
+      '(?i:(?:linked[_-]?in)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{16})(?![\\w-]))',
+    keywords: ['linkedin', 'linked_in', 'linked-in'],
+    entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'lob-api-key',
+    regex:
+      '(?i:(?:lob)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}((live|test)_[a-f0-9]{35})(?![\\w-]))',
+    keywords: ['test_', 'live_'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'lob-pub-api-key',
+    regex:
+      '(?i:(?:lob)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}((test|live)_pub_[a-f0-9]{31})(?![\\w-]))',
+    keywords: ['test_pub', 'live_pub', '_pub'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'looker-client-id',
+    regex:
+      '(?i:(?:looker)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{20})(?![\\w-]))',
+    keywords: ['looker'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'looker-client-secret',
+    regex:
+      '(?i:(?:looker)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{24})(?![\\w-]))',
+    keywords: ['looker'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mailchimp-api-key',
+    regex:
+      '(?i:(?:MailchimpSDK.initialize|mailchimp)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{32}-us\\d\\d)(?![\\w-]))',
+    keywords: ['mailchimp'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mailgun-private-api-token',
+    regex:
+      '(?i:(?:mailgun)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(key-[a-f0-9]{32})(?![\\w-]))',
+    keywords: ['mailgun'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mailgun-pub-key',
+    regex:
+      '(?i:(?:mailgun)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(pubkey-[a-f0-9]{32})(?![\\w-]))',
+    keywords: ['mailgun'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mailgun-signing-key',
+    regex:
+      '(?i:(?:mailgun)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-h0-9]{32}-[a-h0-9]{8}-[a-h0-9]{8})(?![\\w-]))',
+    keywords: ['mailgun'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mapbox-api-token',
+    regex:
+      '(?i:(?:mapbox)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(pk\\.[a-z0-9]{60}\\.[a-z0-9]{22})(?![\\w-]))',
+    keywords: ['mapbox'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'mattermost-access-token',
+    regex:
+      '(?i:(?:mattermost)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{26})(?![\\w-]))',
+    keywords: ['mattermost'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -590,6 +1228,25 @@ export const rules = [
     regex: '\\b([A-Za-z0-9]{6}_[A-Za-z0-9]{29}_mmk)(?![\\w-])',
     keywords: ['_mmk'],
     entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'messagebird-api-token',
+    regex:
+      '(?i:(?:message[_-]?bird)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{25})(?![\\w-]))',
+    keywords: ['messagebird', 'message-bird', 'message_bird'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'messagebird-client-id',
+    regex:
+      '(?i:(?:message[_-]?bird)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['messagebird', 'message-bird', 'message_bird'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -598,6 +1255,52 @@ export const rules = [
       'https://[a-z0-9]+\\.webhook\\.office\\.com/webhookb2/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}@[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}/IncomingWebhook/[a-z0-9]{32}/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}',
     keywords: ['webhook.office.com', 'webhookb2', 'incomingwebhook'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'netlify-access-token',
+    regex:
+      '(?i:(?:netlify)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{40,46})(?![\\w-]))',
+    keywords: ['netlify'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'new-relic-browser-api-token',
+    regex:
+      '(?i:(?:new-relic|newrelic|new_relic)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(NRJS-[a-f0-9]{19})(?![\\w-]))',
+    keywords: ['nrjs-'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'new-relic-insert-key',
+    regex:
+      '(?i:(?:new-relic|newrelic|new_relic)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(NRII-[a-z0-9-]{32})(?![\\w-]))',
+    keywords: ['nrii-'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'new-relic-user-api-id',
+    regex:
+      '(?i:(?:new-relic|newrelic|new_relic)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{64})(?![\\w-]))',
+    keywords: ['new-relic', 'newrelic', 'new_relic'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'new-relic-user-api-key',
+    regex:
+      '(?i:(?:new-relic|newrelic|new_relic)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(NRAK-[a-z0-9]{27})(?![\\w-]))',
+    keywords: ['nrak'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -605,6 +1308,7 @@ export const rules = [
     regex: '\\b(ntn_[0-9]{11}[A-Za-z0-9]{32}[A-Za-z0-9]{3})(?![\\w-])',
     keywords: ['ntn_'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -612,6 +1316,7 @@ export const rules = [
     regex: '(?i:\\b(npm_[a-z0-9]{36})(?![\\w-]))',
     keywords: ['npm_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -619,13 +1324,33 @@ export const rules = [
     regex: '(?i:<add key=\\"(?:(?:ClearText)?Password)\\"\\s*value=\\"(.{8,})\\"\\s*/>)',
     keywords: ['<add key='],
     entropy: 1,
+    secretGroup: 0,
     allowlists: [{ regexTarget: 'secret', regexes: ['^\\%\\S.*\\%$'], stopwords: [] }],
+  },
+  {
+    id: 'nytimes-access-token',
+    regex:
+      '(?i:(?:nytimes|new-york-times,|newyorktimes)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9=_\\-]{32})(?![\\w-]))',
+    keywords: ['nytimes', 'new-york-times', 'newyorktimes'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
   },
   {
     id: 'octopus-deploy-api-key',
     regex: '\\b(API-[A-Z0-9]{26})(?![\\w-])',
     keywords: ['api-'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'okta-access-token',
+    regex:
+      '(?i:(?:(?-i:[Oo]kta|OKTA))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(00[\\w=\\-]{40})(?![\\w-])',
+    keywords: ['okta'],
+    entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -634,6 +1359,7 @@ export const rules = [
       '\\b(sk-(?:proj|svcacct|admin)-(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})T3BlbkFJ(?:[A-Za-z0-9_-]{74}|[A-Za-z0-9_-]{58})\\b|sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?![\\w-])',
     keywords: ['t3blbkfj'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -641,6 +1367,7 @@ export const rules = [
     regex: '\\b(sha256~[\\w-]{43})(?:[^\\w-]|$)',
     keywords: ['sha256~'],
     entropy: 3.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -648,6 +1375,34 @@ export const rules = [
     regex: '\\b(pplx-[a-zA-Z0-9]{48})(?:[\\x60\'"\\s;]|\\\\[nr]|$|\\b)',
     keywords: ['pplx-'],
     entropy: 4,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'plaid-api-token',
+    regex:
+      '(?i:(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(access-(?:sandbox|development|production)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['plaid'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'plaid-client-id',
+    regex:
+      '(?i:(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{24})(?![\\w-]))',
+    keywords: ['plaid'],
+    entropy: 3.5,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'plaid-secret-key',
+    regex:
+      '(?i:(?:plaid)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{30})(?![\\w-]))',
+    keywords: ['plaid'],
+    entropy: 3.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -655,6 +1410,7 @@ export const rules = [
     regex: '\\b(pscale_tkn_(?i:[\\w=\\.-]{32,64}))(?![\\w-])',
     keywords: ['pscale_tkn_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -662,6 +1418,7 @@ export const rules = [
     regex: '\\b(pscale_oauth_[\\w=\\.-]{32,64})(?![\\w-])',
     keywords: ['pscale_oauth_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -669,6 +1426,7 @@ export const rules = [
     regex: '(?i:\\b(pscale_pw_(?i:[\\w=\\.-]{32,64}))(?![\\w-]))',
     keywords: ['pscale_pw_'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -676,6 +1434,7 @@ export const rules = [
     regex: '\\b(PMAK-(?i:[a-f0-9]{24}\\-[a-f0-9]{34}))(?![\\w-])',
     keywords: ['pmak-'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -683,6 +1442,7 @@ export const rules = [
     regex: '\\b(pnu_[a-zA-Z0-9]{36})(?![\\w-])',
     keywords: ['pnu_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -691,6 +1451,16 @@ export const rules = [
       '(?i:-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\\s\\S-]{64,}?KEY(?: BLOCK)?-----)',
     keywords: ['-----begin'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'privateai-api-token',
+    regex:
+      '(?i:(?:private[_-]?ai)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{32})(?![\\w-])',
+    keywords: ['privateai', 'private_ai', 'private-ai'],
+    entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -698,6 +1468,7 @@ export const rules = [
     regex: '\\b(pul-[a-f0-9]{40})(?![\\w-])',
     keywords: ['pul-'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -705,6 +1476,16 @@ export const rules = [
     regex: 'pypi-AgEIcHlwaS5vcmc[\\w-]{50,1000}',
     keywords: ['pypi-ageichlwas5vcmc'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'rapidapi-access-token',
+    regex:
+      '(?i:(?:rapidapi)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9_-]{50})(?![\\w-]))',
+    keywords: ['rapidapi'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -712,6 +1493,7 @@ export const rules = [
     regex: '\\b(rdme_[a-z0-9]{70})(?![\\w-])',
     keywords: ['rdme_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -719,6 +1501,7 @@ export const rules = [
     regex: '\\b(rubygems_[a-f0-9]{48})(?![\\w-])',
     keywords: ['rubygems_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -726,6 +1509,25 @@ export const rules = [
     regex: '\\b(tk-us-[\\w-]{48})(?![\\w-])',
     keywords: ['tk-us-'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sendbird-access-id',
+    regex:
+      '(?i:(?:sendbird)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['sendbird'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sendbird-access-token',
+    regex:
+      '(?i:(?:sendbird)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{40})(?![\\w-]))',
+    keywords: ['sendbird'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -733,6 +1535,7 @@ export const rules = [
     regex: '\\b(SG\\.(?i:[a-z0-9=_\\-\\.]{66}))(?![\\w-])',
     keywords: ['sg.'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -740,6 +1543,16 @@ export const rules = [
     regex: '\\b(xkeysib-[a-f0-9]{64}\\-(?i:[a-z0-9]{16}))(?![\\w-])',
     keywords: ['xkeysib-'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sentry-access-token',
+    regex:
+      '(?i:(?:sentry)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{64})(?![\\w-]))',
+    keywords: ['sentry'],
+    entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -748,6 +1561,7 @@ export const rules = [
       '\\bsntrys_eyJpYXQiO[a-zA-Z0-9+/]{10,200}(?:LCJyZWdpb25fdXJs|InJlZ2lvbl91cmwi|cmVnaW9uX3VybCI6)[a-zA-Z0-9+/]{10,200}={0,2}_[a-zA-Z0-9+/]{43}(?:[^a-zA-Z0-9+/]|$)',
     keywords: ['sntrys_eyjpyxqio'],
     entropy: 4.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -755,6 +1569,7 @@ export const rules = [
     regex: '\\b(sntryu_[a-f0-9]{64})(?![\\w-])',
     keywords: ['sntryu_'],
     entropy: 3.5,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -762,6 +1577,7 @@ export const rules = [
     regex: '\\b(sm_aat_[a-zA-Z0-9]{16})(?![\\w-])',
     keywords: ['sm_aat'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -769,6 +1585,7 @@ export const rules = [
     regex: '\\b(sm_pat_[a-zA-Z0-9]{16})(?![\\w-])',
     keywords: ['sm_pat'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -776,6 +1593,7 @@ export const rules = [
     regex: '\\b(sm_sat_[a-zA-Z0-9]{16})(?![\\w-])',
     keywords: ['sm_sat'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -783,6 +1601,7 @@ export const rules = [
     regex: '\\b(shippo_(?:live|test)_[a-fA-F0-9]{40})(?![\\w-])',
     keywords: ['shippo_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -790,6 +1609,7 @@ export const rules = [
     regex: 'shpat_[a-fA-F0-9]{32}',
     keywords: ['shpat_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -797,6 +1617,7 @@ export const rules = [
     regex: 'shpca_[a-fA-F0-9]{32}',
     keywords: ['shpca_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -804,6 +1625,7 @@ export const rules = [
     regex: 'shppa_[a-fA-F0-9]{32}',
     keywords: ['shppa_'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -811,6 +1633,16 @@ export const rules = [
     regex: 'shpss_[a-fA-F0-9]{32}',
     keywords: ['shpss_'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sidekiq-secret',
+    regex:
+      '(?i:(?:BUNDLE_ENTERPRISE__CONTRIBSYS__COM|BUNDLE_GEMS__CONTRIBSYS__COM)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-f0-9]{8}:[a-f0-9]{8})(?![\\w-]))',
+    keywords: ['bundle_enterprise__contribsys__com', 'bundle_gems__contribsys__com'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -819,6 +1651,7 @@ export const rules = [
       '(?i:\\bhttps?://([a-f0-9]{8}:[a-f0-9]{8})@(?:gems.contribsys.com|enterprise.contribsys.com)(?:[\\/|\\#|\\?|:]|$))',
     keywords: ['gems.contribsys.com', 'enterprise.contribsys.com'],
     entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -826,6 +1659,7 @@ export const rules = [
     regex: '(?i:xapp-\\d-[A-Z0-9]+-\\d+-[a-z0-9]+)',
     keywords: ['xapp'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -833,6 +1667,7 @@ export const rules = [
     regex: 'xoxb-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*',
     keywords: ['xoxb'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -840,6 +1675,7 @@ export const rules = [
     regex: '(?i:xoxe.xox[bp]-\\d-[A-Z0-9]{163,166})',
     keywords: ['xoxe.xoxb-', 'xoxe.xoxp-'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -847,6 +1683,7 @@ export const rules = [
     regex: '(?i:xoxe-\\d-[A-Z0-9]{146})',
     keywords: ['xoxe-'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -854,6 +1691,7 @@ export const rules = [
     regex: 'xoxb-[0-9]{8,14}-[a-zA-Z0-9]{18,26}',
     keywords: ['xoxb'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -861,6 +1699,7 @@ export const rules = [
     regex: 'xox[os]-\\d+-\\d+-\\d+-[a-fA-F\\d]+',
     keywords: ['xoxo', 'xoxs'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -868,6 +1707,7 @@ export const rules = [
     regex: 'xox[ar]-(?:\\d-)?[0-9a-zA-Z]{8,48}',
     keywords: ['xoxa', 'xoxr'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -875,6 +1715,7 @@ export const rules = [
     regex: 'xox[pe](?:-[0-9]{10,13}){3}-[a-zA-Z0-9-]{28,34}',
     keywords: ['xoxp-', 'xoxe-'],
     entropy: 2,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -882,6 +1723,25 @@ export const rules = [
     regex: '(?:https?://)?hooks.slack.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}',
     keywords: ['hooks.slack.com'],
     entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'snyk-api-token',
+    regex:
+      '(?i:(?:snyk[_.-]?(?:(?:api|oauth)[_.-]?)?(?:key|token))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['snyk'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sonar-api-token',
+    regex:
+      '(?i:(?:sonar[_.-]?(login|token))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}((?:squ_|sqp_|sqa_)?[a-z0-9=_\\-]{40})(?![\\w-]))',
+    keywords: ['sonar'],
+    entropy: 0,
+    secretGroup: 2,
     allowlists: [],
   },
   {
@@ -890,6 +1750,7 @@ export const rules = [
       '(?i:\\b(\\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40}|[a-fA-F0-9]{40})\\b)(?![\\w-]))',
     keywords: ['sgp_', 'sourcegraph'],
     entropy: 3,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -897,6 +1758,16 @@ export const rules = [
     regex: '\\b((?:EAAA|sq0atp-)[\\w-]{22,60})(?![\\w-])',
     keywords: ['sq0atp-', 'eaaa'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'squarespace-access-token',
+    regex:
+      '(?i:(?:squarespace)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\\w-]))',
+    keywords: ['squarespace'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -904,6 +1775,43 @@ export const rules = [
     regex: '\\b((?:sk|rk)_(?:test|live|prod)_[a-zA-Z0-9]{10,99})(?![\\w-])',
     keywords: ['sk_test', 'sk_live', 'sk_prod', 'rk_test', 'rk_live', 'rk_prod'],
     entropy: 2,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sumologic-access-id',
+    regex:
+      '(?i:(?:(?-i:[Ss]umo|SUMO))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3})(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(su[a-zA-Z0-9]{12})(?![\\w-])',
+    keywords: ['sumo'],
+    entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'sumologic-access-token',
+    regex:
+      '(?i:(?:(?-i:[Ss]umo|SUMO))(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{64})(?![\\w-]))',
+    keywords: ['sumo'],
+    entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'telegram-bot-api-token',
+    regex:
+      '(?i:(?:telegr)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9]{5,16}:(?-i:A)[a-z0-9_\\-]{34})(?![\\w-]))',
+    keywords: ['telegr'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'travisci-access-token',
+    regex:
+      '(?i:(?:travis)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{22})(?![\\w-]))',
+    keywords: ['travis'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -911,6 +1819,70 @@ export const rules = [
     regex: 'SK[0-9a-fA-F]{32}',
     keywords: ['sk'],
     entropy: 3,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitch-api-token',
+    regex:
+      '(?i:(?:twitch)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{30})(?![\\w-]))',
+    keywords: ['twitch'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitter-access-secret',
+    regex:
+      '(?i:(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{45})(?![\\w-]))',
+    keywords: ['twitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitter-access-token',
+    regex:
+      '(?i:(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([0-9]{15,25}-[a-zA-Z0-9]{20,40})(?![\\w-]))',
+    keywords: ['twitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitter-api-key',
+    regex:
+      '(?i:(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{25})(?![\\w-]))',
+    keywords: ['twitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitter-api-secret',
+    regex:
+      '(?i:(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{50})(?![\\w-]))',
+    keywords: ['twitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'twitter-bearer-token',
+    regex:
+      '(?i:(?:twitter)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(A{22}[a-zA-Z0-9%]{80,100})(?![\\w-]))',
+    keywords: ['twitter'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'typeform-api-token',
+    regex:
+      '(?i:(?:typeform)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(tfp_[a-z0-9\\-_\\.=]{59})(?![\\w-]))',
+    keywords: ['tfp_'],
+    entropy: 0,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -918,6 +1890,7 @@ export const rules = [
     regex: '\\b(hvb\\.[\\w-]{138,300})(?![\\w-])',
     keywords: ['hvb.'],
     entropy: 4,
+    secretGroup: 0,
     allowlists: [],
   },
   {
@@ -925,6 +1898,43 @@ export const rules = [
     regex: '\\b((?:hvs\\.[\\w-]{90,120}|s\\.(?i:[a-z0-9]{24})))(?![\\w-])',
     keywords: ['hvs.', 's.'],
     entropy: 3.5,
+    secretGroup: 0,
     allowlists: [{ regexTarget: 'secret', regexes: ['s\\.[A-Za-z]{24}'], stopwords: [] }],
+  },
+  {
+    id: 'yandex-access-token',
+    regex:
+      '(?i:(?:yandex)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(t1\\.[A-Z0-9a-z_-]+[=]{0,2}\\.[A-Z0-9a-z_-]{86}[=]{0,2})(?![\\w-]))',
+    keywords: ['yandex'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'yandex-api-key',
+    regex:
+      '(?i:(?:yandex)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(AQVN[A-Za-z0-9_\\-]{35,38})(?![\\w-]))',
+    keywords: ['yandex'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'yandex-aws-access-token',
+    regex:
+      '(?i:(?:yandex)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}(YC[a-zA-Z0-9_\\-]{38})(?![\\w-]))',
+    keywords: ['yandex'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
+  },
+  {
+    id: 'zendesk-secret-key',
+    regex:
+      '(?i:(?:zendesk)(?:[ \\t\\w.-]{0,20})[\\s\'"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60\'"\\s=]{0,5}([a-z0-9]{40})(?![\\w-]))',
+    keywords: ['zendesk'],
+    entropy: 0,
+    secretGroup: 0,
+    allowlists: [],
   },
 ];

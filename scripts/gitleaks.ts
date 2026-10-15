@@ -7,13 +7,18 @@ const VERSION = 'v8.30.1';
 const SOURCE = `https://raw.githubusercontent.com/gitleaks/gitleaks/${VERSION}`;
 const OUT = new URL('../plugins/preallow/hooks/gitleaks.generated.ts', import.meta.url);
 
-// The assignment that gitleaks' rules for a value under a keyword, such as
-// `cohere_key = ...`, share. The alternatives that hold it are left out:
-// written for Go's linear-time engine, they backtrack for seconds over a
-// megabyte of crafted output, past the hook's budget; they include
-// `generic-api-key`, which matches code such as `apiKey = process.env.KEY`;
-// and preallow's own shapes cover a value under a credential's name.
-const ASSIGNMENT = String.raw`(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)`;
+// The name before a value under a keyword, such as `cohere_key` in
+// `cohere_key = ...`. gitleaks matches it only to show it in a finding (its
+// source calls it "just an ignore group"); in JavaScript's backtracking engine
+// it takes seconds over a megabyte of crafted output, past the hook's budget,
+// against milliseconds without it.
+const IDENTIFIER = String.raw`[\w.-]{0,50}?`;
+
+// Rules that flag ordinary code: `generic-api-key`, and
+// `hashicorp-tf-password` outside the Terraform files gitleaks applies it to,
+// match labels such as `PASSWORD = "password_missing"`. preallow's own shapes
+// cover a value under a credential's name.
+const LEFT_OUT = new Set(['generic-api-key', 'hashicorp-tf-password']);
 
 // How gitleaks ends a provider token, consuming the character after it since
 // Go's engine has no lookahead. That misses a token followed by a full stop,
@@ -75,31 +80,6 @@ function toJs(go: string): string {
   return out;
 }
 
-// The alternatives at the top level of a regex `toJs` wrote, each of which
-// carries its own flags.
-function alternatives(js: string): string[] {
-  const parts = [''];
-  let depth = 0;
-  for (let i = 0; i < js.length; i++) {
-    let c = js[i]!;
-    if (c === '\\') {
-      c += js[++i];
-    } else if (c === '[') {
-      let j = i + 1;
-      while (js[j] !== ']') j += js[j] === '\\' ? 2 : 1;
-      c = js.slice(i, j + 1);
-      i = j;
-    } else if (c === '(') {
-      depth++;
-    } else if (c === ')') {
-      depth--;
-    }
-    if (c === '|' && depth === 0) parts.push('');
-    else parts[parts.length - 1] += c;
-  }
-  return parts;
-}
-
 type GoAllowlist = {
   condition?: string;
   regexTarget?: string;
@@ -145,23 +125,16 @@ const config = Bun.TOML.parse(await fetchText('config/gitleaks.toml')) as {
 };
 
 const rules = config.rules
-  .flatMap((rule) => {
+  .flatMap((rule) =>
     // A rule without a regex matches file paths, not text.
-    if (rule.regex === undefined) return [];
-    const kept = alternatives(toJs(rule.regex)).filter((regex) => !regex.includes(ASSIGNMENT));
-    if (kept.length === 0) return [];
-    return [{ ...rule, regex: kept.join('|').replaceAll(TOKEN_END, String.raw`(?![\w-])`) }];
-  })
-  .map((rule) => {
-    if (rule.secretGroup !== undefined)
-      throw new Error(`hooks/gitleaks.ts reads no secret group, which ${rule.id} sets`);
-    return rule;
-  })
+    rule.regex === undefined || LEFT_OUT.has(rule.id) ? [] : [{ ...rule, regex: rule.regex }],
+  )
   .map((rule) => ({
     id: rule.id,
-    regex: rule.regex,
+    regex: toJs(rule.regex.replaceAll(IDENTIFIER, '')).replaceAll(TOKEN_END, String.raw`(?![\w-])`),
     keywords: (rule.keywords ?? []).map((k) => k.toLowerCase()),
     entropy: rule.entropy ?? 0,
+    secretGroup: rule.secretGroup ?? 0,
     allowlists: (rule.allowlists ?? [])
       .map(allowlist)
       .filter((list) => list.regexes.length > 0 || list.stopwords.length > 0),

@@ -47,6 +47,7 @@ describe('findSecret', () => {
     ['kubernetes-secret-yaml', `kind: Secret\ndata:\n  cert: ${mixed(24)}`],
     ['npm-access-token', `The token is npm_${mixed(36)}.`],
     ['atlassian-api-token', `ATATT3${mixed(186)}`],
+    ['okta-access-token', `OKTA = 00${mixed(40)}`],
   ];
   for (const [kind, text] of found) {
     test(`${kind}: ${text}`, () => {
@@ -70,13 +71,15 @@ describe('findSecret', () => {
     `sessionId=${['3f2a9c4e', '7b1d', '4e8a', '9c2f', '5d6e7a8b9c0d'].join('-')}`,
     'session_timeout=3600',
     `considered=${RANDOM}`,
+    'const PASSWORD_MISSING = "password_missing";',
     // Too uniform for gitleaks' rule, whose entropy is taken from the value
-    // alone; a known example key; a stopword; and a Secret in the document
-    // after the data.
+    // alone; a known example key; a stopword, also in a rule's secret group;
+    // and a Secret in the document after the data.
     `ghp_${'x'.repeat(36)}`,
     'curl -u aaa:aaaaaaaaaa https://example.com',
     `AKIA${'IOSFODNN7'}EXAMPLE`,
     `hf_${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}abcdefgh`,
+    `sonar.login=${'abcdefghijklmnopqrstuvwxyz'}0123456789abcd`,
     `data:\n  color: ${'Ymx1ZQ'.repeat(3)}\n---\napiVersion: v1\nkind: Secret\ntype: Opaque`,
   ];
   for (const [name, run] of [

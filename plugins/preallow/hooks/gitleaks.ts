@@ -31,8 +31,10 @@ export function findLeak(text: string): string | undefined {
   for (const rule of rules) {
     if (!rule.keywords.some((k) => lower.includes(k))) continue;
     for (const match of text.matchAll(rule.regex)) {
-      // The secret is the first group that matched, as gitleaks takes it.
-      const secret = match.slice(1).find(Boolean) ?? match[0];
+      // The secret is the rule's secret group, else the first group that
+      // matched, as gitleaks takes it.
+      const secret =
+        (rule.secretGroup > 0 ? match[rule.secretGroup] : match.slice(1).find(Boolean)) ?? match[0];
       if (rule.entropy > 0 && entropy(secret) <= rule.entropy) continue;
       const allowed = rule.allowlists.some(
         (list) =>

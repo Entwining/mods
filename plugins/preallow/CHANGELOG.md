@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.4 - 2026-10-15
+
+- The credential check also knows the gitleaks rules that find a provider's token by the provider's name beside it, such as Okta and Cohere tokens.
+
 ## 0.0.3 - 2026-10-15
 
 - An `ask` from the read block (`permissions.blockReadsOutsideWorkingDirectories`), which asks you rather than the classifier, and one put to a host that answers the session's asks are left to them, as Claude Code 2.1.300 marks them. Before, the judge could allow a read the read block meant to ask you about.
