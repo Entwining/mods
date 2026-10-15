@@ -7,6 +7,7 @@
 - After withholding an output, the plugin tells the agent that the call was made and that running it again repeats its effects.
 - The credential check knows the token formats of gitleaks' provider rules, such as Shopify, DigitalOcean, and Vault tokens and `curl -u` logins, in place of most of its own list, and no longer withholds a token too uniform to be real, such as `ghp_` followed by x's.
 - A message the plugin's store fails to save no longer deletes other conversations' words.
+- The judge reads, for each call, your first and newest messages, then those that set a limit, then those that share the most words with the call, instead of the newest that fit, so a prohibition given early or in the middle of a long message still reaches it. Each conversation keeps up to 64,000 characters of your words instead of 24,000.
 - The 50 kept conversations fit the plugin's store even when their text is mostly characters that JSON escapes, and a conversation always keeps its newest message.
 - The log records `held` for each `ask` left to its decider, naming the field that marked it, and `withheld` also when checking an output failed; every line carries the Claude Code version in `engine`. A `denied` line now comes from Claude Code's `PermissionDenied` event instead of the wording of the denial.
 
