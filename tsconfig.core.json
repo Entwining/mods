@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "typeRoots": ["node_modules/.cache/claude-code-core"],
+    "types": ["claude-code"]
+  },
+  "include": ["plugins/*/hooks", "plugins/*/types", "plugins/*/tests", "tool-results.d.ts"]
+}

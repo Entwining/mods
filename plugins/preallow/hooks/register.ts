@@ -23,9 +23,9 @@ const ENGINE_DECIDED = new Set(['SubagentHandback', 'AskUserQuestion', 'ExitPlan
 // classifier: a settings rule, a classic hook, an option's own check (the read
 // block, which asks the person), a host that answers the session's asks, and
 // an organization's ceiling. Every field but the verdict and its reason is
-// listed, so `bun run typecheck` fails on a field the engine adds until it is
-// marked here; a field marked false is read as information and leaves the ask
-// to the judge.
+// listed, so `bun run typecheck:core` fails on a field the engine adds until
+// it is marked here; a field marked false is read as information and leaves
+// the ask to the judge.
 const HOLDS_ASK = {
   rule: true,
   hook: true,

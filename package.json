@@ -3,13 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "bun run fmt:check && bun run lint && bun run validate && bun run test",
+    "check": "bun run fmt:check && bun run lint && bun run validate && bun run test && bun run typecheck:core",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
     "validate": "claude plugin validate . && claude plugin validate plugins/preallow",
     "test": "claude plugin test plugins/preallow",
     "typecheck": "tsc -p plugins/preallow",
+    "typecheck:core": "bun scripts/core-types.ts && tsc -p tsconfig.core.json",
     "gitleaks": "bun scripts/gitleaks.ts && oxfmt plugins/preallow/hooks/gitleaks.generated.ts"
   },
   "devDependencies": {
