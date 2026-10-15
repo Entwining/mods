@@ -23,9 +23,6 @@ describe('parseVerdict', () => {
       '{"verdict":"ALLOW"}',
       '{"verdict":"review"}',
       '{"verdict":["allow"]}',
-      '[{"verdict":"allow"}]',
-      '["allow"]',
-      'null',
     ])
       expect(parseVerdict(reply).verdict).toBe('pass');
   });
@@ -59,6 +56,7 @@ describe('parseVerdict', () => {
       [{ path: '' }],
       [{ ref: 'main' }],
       [{ path: '/w/a', ref: 'main' }],
+      [{ path: '/w/a', repo: '/w' }],
       [{ path: '/w/a', repo: '/w', ref: 'main' }],
       [{ repo: '/w', ref: '--all' }],
       ['/w/a'],

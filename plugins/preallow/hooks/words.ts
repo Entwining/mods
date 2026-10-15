@@ -27,15 +27,23 @@ export function clip(text: string, max: number): string {
   return `${text.slice(0, head)}\n[… ${text.length - max} characters left out …]\n${text.slice(-tail)}`;
 }
 
+// A turn's size as JSON text, which is what the store counts against its
+// limit and the judge's prompt carries: a character JSON escapes counts as
+// up to six, so a kept conversation stays bounded whatever it holds.
+const size = (turn: string) => JSON.stringify(turn).length;
+
 export function addTurn(words: UserWords, text: string): UserWords {
   const [first, ...rest] = [...words.turns, clip(text, TURN_CHARS)];
-  let room = TURNS_CHARS - first!.length;
+  let room = TURNS_CHARS - size(first!);
+
+  // The newest message stays even when the first leaves no room for it.
   const newest: string[] = [];
   for (const turn of rest.toReversed()) {
-    if (turn.length > room) break;
+    if (newest.length > 0 && size(turn) > room) break;
     newest.unshift(turn);
-    room -= turn.length;
+    room -= size(turn);
   }
+
   return { turns: [first!, ...newest], leftOut: words.leftOut + rest.length - newest.length };
 }
 
@@ -44,10 +52,8 @@ export function addTurn(words: UserWords, text: string): UserWords {
 // process, and `/clear` goes on under a new id that holds none.
 const TURNS_KEY = 'turns:';
 // The conversations written in least recently go first. Each is bounded by
-// what the judge reads, but together they can still pass the store's limit,
-// so a write the store refuses for its size makes room the same way.
+// what the judge reads, so this many stay well under the store's limit.
 const KEPT_CONVERSATIONS = 50;
-const STORE_LIMIT = 4 * 1024 * 1024;
 
 // `at` orders the conversations: the store keeps keys in the order they were
 // first set, whatever was written since.
@@ -71,15 +77,6 @@ async function byAge($: EngineInterface, keys: readonly string[]): Promise<strin
   return keys.toSorted((a, b) => at.get(a)! - at.get(b)!);
 }
 
-// The store with `value` under `key`, in UTF-8 bytes of JSON text, which are
-// never fewer than the characters the store may count instead.
-async function storeBytes($: EngineInterface, key: string, value: unknown): Promise<number> {
-  const entries: Record<string, unknown> = {};
-  for (const other of await $.store.keys()) entries[other] = await $.store.get(other);
-  entries[key] = value;
-  return new TextEncoder().encode(JSON.stringify(entries)).length;
-}
-
 let storeTail: Promise<void> = Promise.resolve();
 
 // Writes one at a time, so a message is never lost to a concurrent write: a
@@ -93,20 +90,13 @@ export function remember($: EngineInterface, text: string): Promise<void> {
     .then(async () => {
       const key = `${TURNS_KEY}${await $.session.id()}`;
       const kept: KeptWords = { ...addTurn(await userWords($), text), at: Date.now() };
-      for (;;) {
-        try {
-          await $.store.set(key, kept);
-          break;
-        } catch (error) {
-          // A refusal while the store is under half its limit has another
-          // cause, which dropping conversations would not cure.
-          const [oldest] = await byAge($, await otherConversations($, key));
-          if (oldest === undefined || (await storeBytes($, key, kept)) < STORE_LIMIT / 2)
-            throw error;
-          await $.store.delete(oldest);
-        }
-      }
-      const newestFirst = (await byAge($, await otherConversations($, key))).toReversed();
+
+      await $.store.set(key, kept);
+
+      const others = await otherConversations($, key);
+      // Ordering them costs a store read each, on every message.
+      if (others.length < KEPT_CONVERSATIONS) return;
+      const newestFirst = (await byAge($, others)).toReversed();
       for (const old of newestFirst.slice(KEPT_CONVERSATIONS - 1)) await $.store.delete(old);
     });
   return storeTail;

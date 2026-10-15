@@ -38,11 +38,6 @@ const HOLDS_ASK = {
 // classifier may allow.
 const ENGINE_REFUSAL = 'Only the auto-mode classifier can allow';
 
-// How the core reports a call the auto-mode classifier denied; the denial
-// carries no `deny` field.
-const CLASSIFIER_DENIAL =
-  'Permission for this action was denied by the Claude Code auto mode classifier';
-
 export const register: Register = (on, options) => {
   // The settings go to the model client as the user wrote them; a value it
   // refuses fails the judge call, which leaves the call to the classifier.
@@ -76,6 +71,13 @@ export const register: Register = (on, options) => {
     return next(e);
   });
 
+  // The engine raises this only for the auto-mode classifier's denials.
+  on('classic.PermissionDenied', async ($, e, next) => {
+    if (passedCalls.has(e.tool_use_id))
+      record($, { event: 'denied', tool_use_id: e.tool_use_id, denial: e.reason.slice(0, 300) });
+    return next(e);
+  });
+
   // Only what the user typed authorizes: not a task notification, another
   // session's message, a channel relay, or a prompt dropped beneath.
   on('prompt.submit', async ($, e, next) => {
@@ -94,6 +96,7 @@ export const register: Register = (on, options) => {
     const core = await next(e);
     if (core.decision !== 'ask') return core;
     if ((await read($, modesRef))[e.agentId ?? 'main'] !== 'auto') return core;
+
     const id = e.tool_use_id;
     const log = (event: string, details: Record<string, unknown>) => {
       if (id !== undefined)
@@ -104,15 +107,18 @@ export const register: Register = (on, options) => {
       log(event, { ...details, coreReason: core.reason });
       return core;
     };
+
     const heldBy = (Object.keys(HOLDS_ASK) as Array<keyof typeof HOLDS_ASK>).find(
       (field) => HOLDS_ASK[field] && core[field] !== undefined,
     );
     if (heldBy !== undefined) return leave('held', { heldBy, [heldBy]: core[heldBy] });
     if (ENGINE_DECIDED.has(e.tool)) return leave('reserved');
+
     // A call run in the background returns before its output arrives, and the
     // plugin cannot check what reaches the model later.
     if ((e.input as { run_in_background?: unknown }).run_in_background === true)
       return leave('background');
+
     const key = `${e.tool} ${JSON.stringify(e.input)}`;
     if (coreCalls.has(key)) return core;
     const verdict = await judgeCall($, settings, e.tool, e.input, e.agentId);
@@ -125,10 +131,12 @@ export const register: Register = (on, options) => {
       facts: verdict.facts,
       ms: verdict.ms,
     });
+
     if (id !== undefined) {
       if (verdict.verdict === 'allow') allowedCalls.set(id, key);
       else passedCalls.add(id);
     }
+
     if (verdict.verdict !== 'allow') return core;
     return { decision: 'allow', reason: `preallow: ${verdict.reason}` };
   });
@@ -153,20 +161,12 @@ export const register: Register = (on, options) => {
 
   // A call the plugin allowed has its output withheld when it holds a
   // credential-shaped value, since the classifier never saw the call; run
-  // again, it goes to the classifier. A call the judge passed and the
-  // classifier denied is logged.
+  // again, it goes to the classifier.
   on('tool.call', async ($, e, next) => {
     const result = await next(e);
     const id = e.tool_use_id;
-    if (passedCalls.delete(id)) {
-      if (result.isError === true && result.text?.startsWith(CLASSIFIER_DENIAL) === true)
-        record($, {
-          event: 'denied',
-          tool_use_id: id,
-          denial: result.text.slice(CLASSIFIER_DENIAL.length, CLASSIFIER_DENIAL.length + 300),
-        });
-      return result;
-    }
+    if (passedCalls.delete(id)) return result;
+
     const key = allowedCalls.get(id);
     if (key === undefined) return result;
     if (result.isError === true && result.text?.startsWith(ENGINE_REFUSAL) === true) {
@@ -175,6 +175,7 @@ export const register: Register = (on, options) => {
       record($, { event: 'refused', tool_use_id: id, refusal: result.text.slice(0, 300) });
       return result;
     }
+
     const why = await withholding($, result.text, result.result, result.context);
     // Still listed while the check runs, so `.catch` withholds the output if
     // the check fails or runs out of time.
@@ -182,7 +183,10 @@ export const register: Register = (on, options) => {
     if (why === undefined) return result;
     record($, { event: 'withheld', tool_use_id: id, why });
     coreCalls.add(key);
-    return { deny: `${WITHHELD} ${why}. ${RERUN}` };
+    // After a call that answered without error the engine already tells the
+    // model that it ran and a plugin withheld its result.
+    const prefix = result.isError === true ? WITHHELD : 'preallow:';
+    return { deny: `${prefix} ${why}. ${RERUN}` };
   }).catch(($, e, next) => {
     // The tool has run: a check that failed or ran out of time must not show
     // the output it was checking.
@@ -190,6 +194,7 @@ export const register: Register = (on, options) => {
     if (key === undefined || !next.called) return next(e);
     allowedCalls.delete(e.tool_use_id);
     coreCalls.add(key);
+    record($, { event: 'withheld', tool_use_id: e.tool_use_id, why: 'checking it failed' });
     return { deny: `${WITHHELD} checking it failed. ${RERUN}` };
   });
 };

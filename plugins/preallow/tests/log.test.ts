@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 
 import { auto, bash, check } from './session.ts';
-import { ALLOW, DENIAL, ENGINE_VERSION, LOG, REFUSAL, REVIEW, world } from './world.ts';
+import { DENIAL, ENGINE_VERSION, LOG, REFUSAL, REVIEW, world } from './world.ts';
 
 const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
 
@@ -40,6 +40,21 @@ describe('the log', () => {
       ['denied', 't1', undefined],
     ]);
     expect(lines[1]!.denial).toContain('[Synthetic]');
+
+    // Denied without the judge, then a later call judged and denied.
+    await $.tool.call({
+      tool: 'Bash',
+      command: 'make',
+      run_in_background: true,
+      tool_use_id: 't2',
+    } as never);
+    await $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: 't3' } as never);
+    const later = await w.logged(5);
+    expect(later.slice(2).map((line) => [line.event, line.tool_use_id])).toEqual([
+      ['background', 't2'],
+      ['check', 't3'],
+      ['denied', 't3'],
+    ]);
   });
 
   test('an allow the engine refuses is logged, and the call run again goes to the core', async ($, on) => {
@@ -57,21 +72,16 @@ describe('the log', () => {
     expect(w.modelCalls).toHaveLength(1);
   });
 
-  test('only a denial or refusal from the engine is logged as one', async ($, on) => {
-    // Calls that ran and printed what a denial says.
-    const w = world($, on, { reply: REVIEW, classifierAllows: true, output: DENIAL });
+  test('a call the plugin allowed that printed what a refusal says is not logged as refused', async ($, on) => {
+    const w = world($, on, { output: REFUSAL });
     await auto($);
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: id } as never);
     await call('t1');
-    w.callFails = true;
+    // A later line, so a wrong `refused` line for t1 would come before it.
     await call('t2');
-    w.reply = ALLOW;
-    w.classifierAllows = false;
-    await call('t3');
-    await call('t4');
-    const lines = await w.logged(4);
-    expect(lines.map((line) => line.event)).toEqual(['check', 'check', 'check', 'check']);
+    const lines = await w.logged(2);
+    expect(lines.map((line) => line.event)).toEqual(['check', 'check']);
   });
 
   test('decisions made at once are all logged', async ($, on) => {
@@ -83,6 +93,14 @@ describe('the log', () => {
     ]);
     const lines = await w.logged(2);
     expect(lines.map((line) => line.tool_use_id).toSorted()).toEqual(['t1', 't2']);
+  });
+
+  test('without HOME nothing is logged', async ($, on) => {
+    const w = world($, on, { env: {} });
+    await auto($);
+    await check($, 'Bash', bash('make'));
+    await check($, 'Bash', bash('make b'), { tool_use_id: 't2' });
+    expect([...w.files.keys()]).toEqual([]);
   });
 
   test('a log write that fails leaves later lines to be written', async ($, on) => {

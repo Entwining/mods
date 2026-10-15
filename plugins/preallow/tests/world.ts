@@ -39,6 +39,7 @@ export type World = {
   context: string[] | undefined;
   ran: number;
   sessionId: string;
+  env: Record<string, string>;
   // The plugin's store, in insertion order, and how many characters of JSON
   // it takes before it refuses a write.
   store: Map<string, unknown>;
@@ -66,8 +67,8 @@ export const DENIAL =
 // Everything beneath the plugin: the engine's own decision, the judge model,
 // subagent transcripts, and an in-memory log folder. A tool call asks for its
 // permission under its own id, as a session does beneath every plugin's
-// `tool.call` hook; an ask the classifier denies comes back as the error text
-// the core reports, with no `deny` field.
+// `tool.call` hook; an ask the classifier denies raises `PermissionDenied`
+// and comes back as the error text the core reports, with no `deny` field.
 export function world($: Engine, on: On, partial: Partial<World> = {}): World {
   const waiters: Array<[number, string, (lines: Array<Record<string, unknown>>) => void]> = [];
   const lines = (path: string) =>
@@ -93,6 +94,7 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     context: undefined,
     ran: 0,
     sessionId: 's1',
+    env: { HOME: '/home/u' },
     store: new Map(),
     storeLimit: 4 * 1024 * 1024,
     writeGate: undefined,
@@ -103,9 +105,10 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
       ),
     ...partial,
   };
-  mock.env(on, { HOME: '/home/u' });
+  mock.env(on, w.env);
   on('classic.UserPromptSubmit', async () => ({}));
   on('classic.SubagentStart', async () => ({}));
+  on('classic.PermissionDenied', async () => ({}));
   on('tool.check', async () => w.core);
   on('session.id', async () => ({ value: w.sessionId }));
   on('store.get', async (_$, e) => ({ value: w.store.get(e.key) }) as never);
@@ -184,10 +187,17 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     if (decision === 'deny') return { deny: 'denied by a rule' } as never;
     if (decision === 'allow' && w.engineRefuses)
       return { isError: true, result: REFUSAL, text: REFUSAL } as never;
-    if (decision === 'ask' && !w.classifierAllows)
+    if (decision === 'ask' && !w.classifierAllows) {
+      await $.classic.PermissionDenied({
+        tool_name: tool,
+        tool_input: input,
+        tool_use_id,
+        reason: '[Synthetic]',
+      } as never);
       return { isError: true, result: `Error: ${DENIAL}`, text: DENIAL } as never;
+    }
     w.ran++;
-    if (w.callFails) return { isError: true, result: 'exit 1', text: 'exit 1' } as never;
+    if (w.callFails) return { isError: true, result: w.output, text: w.output } as never;
     return { result: w.record ?? w.output, text: w.output, context: w.context } as never;
   });
   return w;
