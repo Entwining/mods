@@ -12,6 +12,7 @@ This repository is the `entwining-mods` Claude Code marketplace. Each mod is a p
 
 - Use what the mods API, Bun, or the standard library already provides before writing a helper, and add no type, wrapper, or abstraction whose only purpose is to look tidy.
 - A guard, fallback, or `catch` handles an observed failure or a documented engine behavior, and comes with the test the Checks section asks for; otherwise leave it out.
+- A file stays within 200 lines (`max-lines`). Split it along what its parts do rather than to fit the count; a mod's tests follow the same split, with shared fixtures in `tests/` files not named `*.test.ts`.
 - Comments state the reason the code cannot show, not what it does or what it replaced.
 - `.oxlintrc.json` enforces the cases of these that a lint rule can catch.
 

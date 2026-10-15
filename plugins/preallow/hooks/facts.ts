@@ -3,14 +3,12 @@
 // strings reach git only as absolute paths or as checked ref names, so it
 // chooses what to look at, never what runs.
 
+import { git, gitOk, isRefName, type Run } from './git.ts';
+
 export type FactRequest = { path: string } | { repo: string; ref: string };
 
 export type Host = {
-  // Runs a command by argv, no shell; rejects when it cannot start or times out.
-  run: (
-    argv: readonly string[],
-    init: { cwd: string; env: Record<string, string>; timeoutMs: number },
-  ) => Promise<{ exitCode: number; stdout: string; stderr: string; isStdoutTruncated: boolean }>;
+  run: Run;
   exists: (path: string) => Promise<boolean>;
   stat: (path: string) => Promise<{ kind: string; mtimeMs: number; isLink: boolean }>;
   list: (path: string) => Promise<Array<{ name: string; kind: string; mtimeMs: number }>>;
@@ -22,41 +20,8 @@ export type Host = {
 };
 
 export const MAX_REQUESTS = 4;
-const RUN_TIMEOUT_MS = 5000;
-// Paths taken as written, not as globs; optional locks off, so `status`
-// does not rewrite the index; no fsmonitor process; no transport, so nothing
-// reaches the network, lazy fetches of a partial clone included.
-const GIT = [
-  'git',
-  '--literal-pathspecs',
-  '--no-optional-locks',
-  '-c',
-  'core.fsmonitor=false',
-  '-c',
-  'protocol.allow=never',
-] as const;
 const WALK_ENTRIES = 1000;
 const SAMPLE = 10;
-// A ref name the judge gives may not pose as an option.
-const REF_NAME = /^[^-\s][^\s]*$/;
-
-export const isRefName = (value: unknown): value is string =>
-  typeof value === 'string' && REF_NAME.test(value);
-
-// `LC_ALL=C` keeps git's messages in English, so its own word that a
-// directory lies outside any repository can be told from any other failure.
-async function git(host: Host, cwd: string, args: readonly string[]) {
-  return host.run([...GIT, ...args], { cwd, env: { LC_ALL: 'C' }, timeoutMs: RUN_TIMEOUT_MS });
-}
-
-// A query whose failure, or output cut short, says nothing about the state
-// it asks after.
-async function gitOk(host: Host, cwd: string, args: readonly string[]): Promise<string> {
-  const { exitCode, stdout, isStdoutTruncated } = await git(host, cwd, args);
-  if (exitCode !== 0) throw new Error(`git ${args[0]} exited ${exitCode}`);
-  if (isStdoutTruncated) throw new Error(`git ${args[0]} wrote too much`);
-  return stdout;
-}
 
 function absolute(host: Host, path: string): string {
   if (path === '~' || path.startsWith('~/')) {
@@ -113,17 +78,15 @@ async function pathFacts(host: Host, path: string) {
   // A link's own repository is its parent's: run in the link, git would be
   // in the directory it points at.
   const dir = isDir ? abs : parent(abs);
-  const top = await git(host, dir, ['rev-parse', '--show-toplevel']);
+  const top = await git(host.run, dir, ['rev-parse', '--show-toplevel']);
   if (top.exitCode !== 0) {
     if (top.stderr.includes('not a git repository'))
       return { ...facts, git: 'not inside a git work tree' };
     throw new Error(`git rev-parse exited ${top.exitCode}`);
   }
-  const changed: string[] = [];
-  const untracked: string[] = [];
-  const ignored: string[] = [];
+  const [changed, untracked, ignored]: [string[], string[], string[]] = [[], [], []];
   const [status, trackedFiles] = await Promise.all([
-    gitOk(host, dir, [
+    gitOk(host.run, dir, [
       'status',
       '--porcelain=v1',
       '-z',
@@ -132,7 +95,7 @@ async function pathFacts(host: Host, path: string) {
       '--',
       abs,
     ]),
-    gitOk(host, dir, ['ls-files', '-z', '--', abs]),
+    gitOk(host.run, dir, ['ls-files', '-z', '--', abs]),
   ]);
   const entries = status.split('\0');
   for (let i = 0; i < entries.length; i++) {
@@ -160,17 +123,17 @@ async function pathFacts(host: Host, path: string) {
 async function refFacts(host: Host, repo: string, ref: string) {
   const dir = absolute(host, repo);
   if (!isRefName(ref)) throw new Error('not a ref name');
-  const commit = await git(host, dir, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+  const commit = await git(host.run, dir, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
   // 1 is a missing ref; anything else, such as 128 outside a repository,
   // says nothing about it.
   if (commit.exitCode === 1) return { repo: dir, ref, exists: false };
   if (commit.exitCode !== 0) throw new Error(`git rev-parse exited ${commit.exitCode}`);
   const sha = commit.stdout.trim();
-  const fullName = (await gitOk(host, dir, ['rev-parse', '--symbolic-full-name', ref])).trim();
+  const fullName = (await gitOk(host.run, dir, ['rev-parse', '--symbolic-full-name', ref])).trim();
   // A symbolic ref such as a remote's HEAD is another name for the ref it
   // points at, not another copy of its commits.
   const holders = (
-    await gitOk(host, dir, ['for-each-ref', '--contains', sha, '--format=%(refname) %(symref)'])
+    await gitOk(host.run, dir, ['for-each-ref', '--contains', sha, '--format=%(refname) %(symref)'])
   )
     .split('\n')
     .filter(Boolean)
@@ -179,7 +142,7 @@ async function refFacts(host: Host, repo: string, ref: string) {
   const containing = holders
     .filter(([name, target]) => target === '' && name !== fullName)
     .map(([name]) => name);
-  const onlyHere = await gitOk(host, dir, [
+  const onlyHere = await gitOk(host.run, dir, [
     'rev-list',
     '--count',
     sha,
@@ -205,7 +168,7 @@ async function refFacts(host: Host, repo: string, ref: string) {
     // FETCH_HEAD in the worktree it ran in, so the refs are as fresh as the
     // newest FETCH_HEAD among the main worktree and the linked ones.
     const common = (
-      await gitOk(host, dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+      await gitOk(host.run, dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
     ).trim();
     const linked = (await host.exists(`${common}/worktrees`))
       ? (await host.list(`${common}/worktrees`)).map(({ name }) => `${common}/worktrees/${name}`)
