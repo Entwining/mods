@@ -99,6 +99,7 @@ export async function withholding(
   };
   if (backgroundTaskId !== undefined)
     return 'the call moved to the background, where its output cannot be checked';
+
   let full = [text ?? JSON.stringify(output) ?? '', ...(context ?? [])].join('\n');
   if (typeof persistedOutputPath === 'string') {
     try {
@@ -107,6 +108,7 @@ export async function withholding(
       return 'its full output could not be read to check it';
     }
   }
+
   const secret = findSecret(full);
   return secret === undefined ? undefined : `it holds what looks like a credential (${secret})`;
 }

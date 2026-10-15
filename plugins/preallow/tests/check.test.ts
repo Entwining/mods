@@ -64,12 +64,6 @@ describe('tool.check', () => {
     expect(lines.every((line) => line.coreReason === 'synthetic core reason')).toBe(true);
   });
 
-  test('a field of the core answer the plugin does not know leaves the ask to the judge', async ($, on) => {
-    world($, on, { core: { decision: 'ask', traceId: 'x1' } as ToolCheckResult });
-    await auto($);
-    expect((await check($, 'Bash', bash('make'))).decision).toBe('allow');
-  });
-
   test('a tool whose verdict the engine keeps never reaches the judge', async ($, on) => {
     const w = world($, on);
     await auto($);

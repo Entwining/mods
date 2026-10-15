@@ -105,7 +105,7 @@ describe('output', () => {
     } as never);
     expect(w.ran).toBe(1);
     expect(result.deny).toContain('API key');
-    expect(result.deny).toMatch(/^The call was made/);
+    expect(result.deny).toMatch(/^preallow: it holds/);
     expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
     const lines = await w.logged(2);
     expect([lines[1]!.event, lines[1]!.why]).toEqual([
@@ -115,6 +115,15 @@ describe('output', () => {
     expect(JSON.stringify(lines)).not.toContain(FAKE_TOKEN);
     expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
     expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
+
+    // A failed call carries no word from the engine that it ran.
+    w.callFails = true;
+    const failed = await $.tool.call({
+      tool: 'Bash',
+      command: 'cat secret.json',
+      tool_use_id: 't3',
+    } as never);
+    expect(failed.deny).toMatch(/^The call was made, .*API key/);
   });
 
   test('output is passed on when it holds no credential, or the plugin did not allow the call', async ($, on) => {
@@ -164,7 +173,7 @@ describe('output', () => {
     await auto($);
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'cat a.log', tool_use_id: id } as never);
-    expect((await call('t1')).deny).toContain('checking it failed');
+    expect((await call('t1')).deny).toMatch(/^The call was made, .* checking it failed/);
     expect((await w.logged(2))[1]).toMatchObject({ event: 'withheld', why: 'checking it failed' });
     expect((await check($, 'Bash', bash('cat a.log'))).decision).toBe('ask');
   });

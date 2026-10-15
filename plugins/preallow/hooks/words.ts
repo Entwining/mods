@@ -27,15 +27,23 @@ export function clip(text: string, max: number): string {
   return `${text.slice(0, head)}\n[… ${text.length - max} characters left out …]\n${text.slice(-tail)}`;
 }
 
+// A turn's size as JSON text, which is what the store counts against its
+// limit and the judge's prompt carries: a character JSON escapes counts as
+// up to six, so a kept conversation stays bounded whatever it holds.
+const size = (turn: string) => JSON.stringify(turn).length;
+
 export function addTurn(words: UserWords, text: string): UserWords {
   const [first, ...rest] = [...words.turns, clip(text, TURN_CHARS)];
-  let room = TURNS_CHARS - first!.length;
+  let room = TURNS_CHARS - size(first!);
+
+  // The newest message stays even when the first leaves no room for it.
   const newest: string[] = [];
   for (const turn of rest.toReversed()) {
-    if (turn.length > room) break;
+    if (newest.length > 0 && size(turn) > room) break;
     newest.unshift(turn);
-    room -= turn.length;
+    room -= size(turn);
   }
+
   return { turns: [first!, ...newest], leftOut: words.leftOut + rest.length - newest.length };
 }
 
@@ -82,7 +90,9 @@ export function remember($: EngineInterface, text: string): Promise<void> {
     .then(async () => {
       const key = `${TURNS_KEY}${await $.session.id()}`;
       const kept: KeptWords = { ...addTurn(await userWords($), text), at: Date.now() };
+
       await $.store.set(key, kept);
+
       const others = await otherConversations($, key);
       // Ordering them costs a store read each, on every message.
       if (others.length < KEPT_CONVERSATIONS) return;

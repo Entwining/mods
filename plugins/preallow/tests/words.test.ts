@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 
 import { JUDGE_SYSTEM } from '../hooks/policy.ts';
+import { addTurn, NO_WORDS } from '../hooks/words.ts';
 import { auto, bash, check, judged, say, turnsOf } from './session.ts';
 import { world } from './world.ts';
 
@@ -104,6 +105,16 @@ describe('what the judge reads', () => {
     release();
     await saying;
     expect(judged(w).user_messages).toEqual(['do not push']);
+  });
+
+  test('characters JSON escapes count as stored, so 50 conversations fit, and the newest message stays', () => {
+    const escaped = '\u0001'.repeat(10_000);
+    const conversation = [...Array<string>(6).fill(escaped), 'do not push'].reduce(
+      addTurn,
+      NO_WORDS,
+    );
+    expect(conversation.turns.at(-1)).toBe('do not push');
+    expect(JSON.stringify(conversation).length * 50).toBeLessThan(4 * 1024 * 1024);
   });
 
   test('a write the store refuses keeps the words it had, and later words are still kept', async ($, on) => {

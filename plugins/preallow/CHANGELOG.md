@@ -6,7 +6,8 @@
 - The judge reads a call's whole input instead of its first and last 8,000 characters, since the call runs with all of it; a call whose input passes 100,000 characters goes to the classifier without asking the judge.
 - After withholding an output, the plugin tells the agent that the call was made and that running it again repeats its effects.
 - A message the plugin's store fails to save no longer deletes other conversations' words.
-- The log records `held` for each `ask` left to its decider, naming the field that marked it, and `withheld` also when checking an output failed; every line carries the Claude Code version in `engine`.
+- The 50 kept conversations fit the plugin's store even when their text is mostly characters that JSON escapes, and a conversation always keeps its newest message.
+- The log records `held` for each `ask` left to its decider, naming the field that marked it, and `withheld` also when checking an output failed; every line carries the Claude Code version in `engine`. A `denied` line now comes from Claude Code's `PermissionDenied` event instead of the wording of the denial.
 
 ## 0.0.2 - 2026-10-15
 
