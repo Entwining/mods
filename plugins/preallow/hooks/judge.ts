@@ -79,8 +79,10 @@ export async function judge(call: JudgeCase, complete: Complete, gather: Gather)
   const inputChars = (JSON.stringify(call.input) ?? '').length;
   if (inputChars > INPUT_CHARS)
     return { verdict: 'pass', reason: `input of ${inputChars} characters, too long to judge` };
+
   const first = await ask(complete, call);
   if (first.verdict !== 'check') return first;
+
   const checked = first.check;
   let facts: unknown;
   try {
@@ -92,6 +94,7 @@ export async function judge(call: JudgeCase, complete: Complete, gather: Gather)
       checked,
     };
   }
+
   const second = await ask(complete, { ...call, facts });
   return {
     verdict: second.verdict === 'allow' ? 'allow' : 'pass',

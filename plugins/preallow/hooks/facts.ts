@@ -42,6 +42,7 @@ async function walk(host: Host, root: string) {
   let older = 0;
   let oldest: number | undefined;
   let seen = 0;
+
   const queue = [root];
   while (queue.length > 0 && seen < WALK_ENTRIES) {
     const dir = queue.shift()!;
@@ -54,6 +55,7 @@ async function walk(host: Host, root: string) {
       oldest = Math.min(oldest ?? entry.mtimeMs, entry.mtimeMs);
     }
   }
+
   return {
     files,
     filesChangedBeforeSessionStart: older,
@@ -73,8 +75,10 @@ async function pathFacts(host: Host, path: string) {
     ...(stat.isLink ? { isSymbolicLink: true } : {}),
     lastChange: iso(stat.mtimeMs),
   };
+
   const isDir = stat.kind === 'dir' && !stat.isLink;
   if (isDir) Object.assign(facts, await walk(host, abs));
+
   // A link's own repository is its parent's: run in the link, git would be
   // in the directory it points at.
   const dir = isDir ? abs : parent(abs);
@@ -84,6 +88,7 @@ async function pathFacts(host: Host, path: string) {
       return { ...facts, git: 'not inside a git work tree' };
     throw new Error(`git rev-parse exited ${top.exitCode}`);
   }
+
   const [changed, untracked, ignored]: [string[], string[], string[]] = [[], [], []];
   const [status, trackedFiles] = await Promise.all([
     gitOk(host.run, dir, [
@@ -97,6 +102,7 @@ async function pathFacts(host: Host, path: string) {
     ]),
     gitOk(host.run, dir, ['ls-files', '-z', '--', abs]),
   ]);
+
   const entries = status.split('\0');
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i]!;
@@ -108,6 +114,7 @@ async function pathFacts(host: Host, path: string) {
     // A rename or copy is followed by the name it came from.
     if (code.includes('R') || code.includes('C')) i += 1;
   }
+
   return {
     ...facts,
     git: {
@@ -123,11 +130,13 @@ async function pathFacts(host: Host, path: string) {
 async function refFacts(host: Host, repo: string, ref: string) {
   const dir = absolute(host, repo);
   if (!isRefName(ref)) throw new Error('not a ref name');
+
   const commit = await git(host.run, dir, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
   // 1 is a missing ref; anything else, such as 128 outside a repository,
   // says nothing about it.
   if (commit.exitCode === 1) return { repo: dir, ref, exists: false };
   if (commit.exitCode !== 0) throw new Error(`git rev-parse exited ${commit.exitCode}`);
+
   const sha = commit.stdout.trim();
   const fullName = (await gitOk(host.run, dir, ['rev-parse', '--symbolic-full-name', ref])).trim();
   // A symbolic ref such as a remote's HEAD is another name for the ref it
@@ -142,6 +151,7 @@ async function refFacts(host: Host, repo: string, ref: string) {
   const containing = holders
     .filter(([name, target]) => target === '' && name !== fullName)
     .map(([name]) => name);
+
   const onlyHere = await gitOk(host.run, dir, [
     'rev-list',
     '--count',
@@ -163,6 +173,7 @@ async function refFacts(host: Host, repo: string, ref: string) {
     commitsReachableOnlyFromThisRef: Number(onlyHere.trim()),
     otherRefsContainingIt: sample(containing),
   };
+
   if (fullName.startsWith('refs/remotes/')) {
     // A fetch updates the remote refs every worktree shares but writes
     // FETCH_HEAD in the worktree it ran in, so the refs are as fresh as the
@@ -173,14 +184,17 @@ async function refFacts(host: Host, repo: string, ref: string) {
     const linked = (await host.exists(`${common}/worktrees`))
       ? (await host.list(`${common}/worktrees`)).map(({ name }) => `${common}/worktrees/${name}`)
       : [];
+
     let newest: number | undefined;
     for (const gitDir of [common, ...linked]) {
       const fetchHead = `${gitDir}/FETCH_HEAD`;
       if (!(await host.exists(fetchHead))) continue;
       newest = Math.max(newest ?? 0, (await host.stat(fetchHead)).mtimeMs);
     }
+
     facts.remoteRefsAsOfLastFetch = newest === undefined ? 'no fetch recorded' : iso(newest);
   }
+
   return facts;
 }
 
