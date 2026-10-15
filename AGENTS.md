@@ -7,11 +7,12 @@ This repository is the `entwining-mods` Claude Code marketplace. Each mod is a p
 - Development tooling lives only at the repository root: a `package.json` with a lockfile inside a plugin folder makes Claude Code install dependencies on every user's machine.
 - An install copies only the plugin folder, so anything a mod needs at run time or a user needs to read stays inside it.
 - `plugins/<mod>/.claude-plugin/types/` is written by the engine when it loads the mod and holds the machine's MCP tool list; it stays untracked.
+- A mod's README is written for the people who install it; what only someone changing the mod needs goes in its AGENTS.md.
 
 ## Code
 
 - Use what the mods API, Bun, or the standard library already provides before writing a helper, and add no type, wrapper, or abstraction whose only purpose is to look tidy.
-- A guard, fallback, or `catch` handles an observed failure or a documented engine behavior, and comes with the test the Checks section asks for; otherwise leave it out.
+- A guard, fallback, or `catch` handles a failure a real session meets or a documented engine behavior, and comes with the test the Checks section asks for; otherwise leave it out. A case only a constructed input reaches goes in the README's known gaps instead, unless it breaks a promise the README makes.
 - A file stays within 200 lines (`max-lines`). Split it along what its parts do rather than to fit the count; a mod's tests follow the same split, with shared fixtures in `tests/` files not named `*.test.ts`.
 - Comments state the reason the code cannot show, not what it does or what it replaced.
 - `.oxlintrc.json` enforces the cases of these that a lint rule can catch.
