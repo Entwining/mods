@@ -19,7 +19,7 @@ This repository is the `entwining-mods` Claude Code marketplace. Each mod is a p
 
 ## Checks
 
-`bun run check` runs what CI runs: `oxfmt --check`, `oxlint`, `claude plugin validate` for the marketplace and each plugin, and `claude plugin test`. `bun run typecheck` needs the generated types (see the README) and does not run in CI: the engine writes them only when an interactive session loads the mod with `--plugin-dir`. Run it after bumping `@anthropic-ai/claude-code`, since it is what catches a field the new engine adds to an answer a mod reads, such as preallow's `HOLDS_ASK`.
+`bun run check` runs what CI runs: `oxfmt --check`, `oxlint`, `claude plugin validate` for the marketplace and each plugin, and `claude plugin test`. `bun run typecheck` needs the generated types (see the README) and does not run in CI: the engine writes them only when an interactive session loads the mod with `--plugin-dir`. It is what catches a field a new engine adds to an answer a mod reads, such as preallow's `HOLDS_ASK`, and Renovate merges engine updates once CI passes without it, so run it whenever you load a mod from the checkout.
 
 - Tests use synthetic inputs only. This repository is public: no transcripts, logs, real repository names, hostnames, or credentials. Build credential-shaped test strings at run time, such as `` `ghp_${'x'.repeat(36)}` ``, so the source does not look like a leaked key.
 - Every safeguard has a test that fails when the safeguard is removed. After adding or changing one, remove it, watch a test fail, and restore it.
