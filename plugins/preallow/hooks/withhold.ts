@@ -108,5 +108,5 @@ export async function withholding(
     }
   }
   const secret = findSecret(full);
-  return secret === undefined ? undefined : `it holds what looks like a ${secret}`;
+  return secret === undefined ? undefined : `it holds what looks like a credential (${secret})`;
 }

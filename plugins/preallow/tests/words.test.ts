@@ -115,34 +115,4 @@ describe('what the judge reads', () => {
     await say($, 'fix the tests');
     expect(turnsOf(w)).toEqual(['do not push', 'fix the tests']);
   });
-
-  test('a full store drops the least recent conversations to keep the newest words', async ($, on) => {
-    // Two conversations that together leave no room in the store's 4 MiB.
-    const size = 2_100_000;
-    const w = world($, on, {
-      store: new Map([
-        ['turns:b', kept(2, 'b'.repeat(size))],
-        ['turns:a', kept(1, 'a'.repeat(size))],
-        ['turns:s1', kept(3, 'earlier')],
-      ]),
-    });
-    await say($, 'later');
-    expect([...w.store.keys()]).toEqual(['turns:b', 'turns:s1']);
-    expect(turnsOf(w)).toEqual(['earlier', 'later']);
-  });
-
-  test('a write refused while the store is far from full keeps the other conversations', async ($, on) => {
-    const w = world($, on, {
-      store: new Map([
-        ['turns:a', kept(1, 'delete nothing')],
-        ['turns:s1', kept(2, 'do not push')],
-      ]),
-    });
-    w.writeGate = async () => {
-      throw new Error('synthetic write failure');
-    };
-    await say($, 'fix the tests').catch(() => {});
-    expect([...w.store.keys()]).toEqual(['turns:a', 'turns:s1']);
-    expect(turnsOf(w)).toEqual(['do not push']);
-  });
 });

@@ -39,6 +39,7 @@ export type World = {
   context: string[] | undefined;
   ran: number;
   sessionId: string;
+  env: Record<string, string>;
   // The plugin's store, in insertion order, and how many characters of JSON
   // it takes before it refuses a write.
   store: Map<string, unknown>;
@@ -93,6 +94,7 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     context: undefined,
     ran: 0,
     sessionId: 's1',
+    env: { HOME: '/home/u' },
     store: new Map(),
     storeLimit: 4 * 1024 * 1024,
     writeGate: undefined,
@@ -103,7 +105,7 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
       ),
     ...partial,
   };
-  mock.env(on, { HOME: '/home/u' });
+  mock.env(on, w.env);
   on('classic.UserPromptSubmit', async () => ({}));
   on('classic.SubagentStart', async () => ({}));
   on('tool.check', async () => w.core);

@@ -107,6 +107,12 @@ describe('output', () => {
     expect(result.deny).toContain('API key');
     expect(result.deny).toMatch(/^The call was made/);
     expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
+    const lines = await w.logged(2);
+    expect([lines[1]!.event, lines[1]!.why]).toEqual([
+      'withheld',
+      'it holds what looks like a credential (API key)',
+    ]);
+    expect(JSON.stringify(lines)).not.toContain(FAKE_TOKEN);
     expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
     expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
   });
@@ -148,7 +154,7 @@ describe('output', () => {
   });
 
   test('a check that fails withholds the output instead of showing it', async ($, on) => {
-    world($, on, {
+    const w = world($, on, {
       record: {
         get backgroundTaskId(): string {
           throw new Error('unreadable record');
@@ -159,6 +165,7 @@ describe('output', () => {
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'cat a.log', tool_use_id: id } as never);
     expect((await call('t1')).deny).toContain('checking it failed');
+    expect((await w.logged(2))[1]).toMatchObject({ event: 'withheld', why: 'checking it failed' });
     expect((await check($, 'Bash', bash('cat a.log'))).decision).toBe('ask');
   });
 });

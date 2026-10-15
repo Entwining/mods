@@ -14,7 +14,10 @@ const LOG_PART_BYTES = 1_000_000;
 export function record($: EngineInterface, entry: Record<string, unknown>): void {
   logTail = logTail
     .then(async () => {
-      const base = `${await $.env.get('HOME')}/.claude/preallow/${await $.session.id()}`;
+      // Without HOME the path would be relative, inside the user's project.
+      const home = await $.env.get('HOME');
+      if (home === undefined) return;
+      const base = `${home}/.claude/preallow/${await $.session.id()}`;
       let part = 0;
       let path = `${base}.jsonl`;
       while ((await $.fs.exists(path)) && (await $.fs.stat(path)).size > LOG_PART_BYTES) {

@@ -66,9 +66,13 @@ describe('the log', () => {
     await call('t1');
     w.callFails = true;
     await call('t2');
+    // A call the plugin allowed that ran and printed what a refusal says.
     w.reply = ALLOW;
     w.classifierAllows = false;
+    w.callFails = false;
+    w.output = REFUSAL;
     await call('t3');
+    // A later line, so a wrong `refused` line for t3 would come before it.
     await call('t4');
     const lines = await w.logged(4);
     expect(lines.map((line) => line.event)).toEqual(['check', 'check', 'check', 'check']);
@@ -83,6 +87,14 @@ describe('the log', () => {
     ]);
     const lines = await w.logged(2);
     expect(lines.map((line) => line.tool_use_id).toSorted()).toEqual(['t1', 't2']);
+  });
+
+  test('without HOME nothing is logged', async ($, on) => {
+    const w = world($, on, { env: {} });
+    await auto($);
+    await check($, 'Bash', bash('make'));
+    await check($, 'Bash', bash('make b'), { tool_use_id: 't2' });
+    expect([...w.files.keys()]).toEqual([]);
   });
 
   test('a log write that fails leaves later lines to be written', async ($, on) => {

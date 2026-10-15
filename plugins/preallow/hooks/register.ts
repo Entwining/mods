@@ -190,6 +190,7 @@ export const register: Register = (on, options) => {
     if (key === undefined || !next.called) return next(e);
     allowedCalls.delete(e.tool_use_id);
     coreCalls.add(key);
+    record($, { event: 'withheld', tool_use_id: e.tool_use_id, why: 'checking it failed' });
     return { deny: `${WITHHELD} checking it failed. ${RERUN}` };
   });
 };
