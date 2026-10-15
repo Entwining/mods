@@ -2,6 +2,8 @@
 // model. The judge decides before the call runs and cannot see what it will
 // print, and the classifier, which weighs that, never saw the call.
 
+import type { EngineInterface } from 'claude-code';
+
 // Every quantifier that could start at each character of a long run is
 // bounded or stops at the end of its line, so a scan stays linear on a large
 // output within the hook's budget.
@@ -27,7 +29,7 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
   ],
   [
     'API key',
-    /\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|hf_[A-Za-z]{34,}|npm_[A-Za-z0-9]{36}|glrt-[A-Za-z0-9_-]{20,}|dapi[a-f0-9]{32}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43})/,
+    /\b(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|hf_[A-Za-z]{34,}|npm_[A-Za-z0-9]{36}|glrt-[A-Za-z0-9_-]{20,}|dapi[a-f0-9]{32}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43})/,
   ],
   ['JSON web token', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
   [
@@ -72,4 +74,39 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
 // The kind of credential-shaped value the output holds, in SECRET_SHAPES order.
 export function findSecret(text: string): string | undefined {
   return SECRET_SHAPES.find(([, shape]) => shape.test(text))?.[0];
+}
+
+// What the model reads in place of a withheld output. The call was made, so a
+// rerun repeats its effects, such as a message sent or a second server started.
+export const WITHHELD = 'The call was made, and preallow withheld its output:';
+export const RERUN =
+  'Running it again repeats its effects, and leaves it to the auto-mode classifier.';
+
+// Why the output of a call the plugin allowed must be withheld, if it must:
+// what the model would read, including the full output a large result leaves
+// in a file, holds a credential-shaped value, or the output cannot be checked.
+// The model reads the core's `text`, or a hook's own result, which carries
+// none, and any context beside it.
+export async function withholding(
+  $: EngineInterface,
+  text: string | undefined,
+  output: unknown,
+  context: readonly string[] | undefined,
+): Promise<string | undefined> {
+  const { backgroundTaskId, persistedOutputPath } = (output ?? {}) as {
+    backgroundTaskId?: unknown;
+    persistedOutputPath?: unknown;
+  };
+  if (backgroundTaskId !== undefined)
+    return 'the call moved to the background, where its output cannot be checked';
+  let full = [text ?? JSON.stringify(output) ?? '', ...(context ?? [])].join('\n');
+  if (typeof persistedOutputPath === 'string') {
+    try {
+      full += `\n${await $.fs.read(persistedOutputPath)}`;
+    } catch {
+      return 'its full output could not be read to check it';
+    }
+  }
+  const secret = findSecret(full);
+  return secret === undefined ? undefined : `it holds what looks like a ${secret}`;
 }

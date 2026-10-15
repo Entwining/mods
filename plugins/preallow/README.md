@@ -68,7 +68,7 @@ To find calls the judge should not have allowed, read the `check` lines whose ve
 - The judge does not see every word of a long conversation: it reads your first message and then the newest that fit, and of a message over 4,000 characters only the head and tail. A prohibition in a message left out, or in the middle of a long one, does not hold; repeat it in a short message when it matters.
 - A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
 - `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
-- The credential check knows a fixed list of formats (`hooks/secrets.ts`); a credential in any other format, such as a password of letters only or a value under a name the list does not know, passes unchecked.
+- The credential check knows a fixed list of formats (`hooks/withhold.ts`); a credential in any other format, such as a password of letters only or a value under a name the list does not know, passes unchecked.
 - For a call moved to the background while it runs, the plugin withholds the result but cannot check what the task reports when it finishes.
 - A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not check those events.
 - A call the plugin allowed runs again under the classifier after a withheld output only when its input is the same; a rerun with any input change is judged again.

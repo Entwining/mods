@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'claude-code/testing';
-import { findSecret } from '../hooks/secrets.ts';
+import { findSecret } from '../hooks/withhold.ts';
+import { auto, bash, check } from './session.ts';
+import { world } from './world.ts';
 
 // Values are built at run time, so no scanner takes the source for a leak.
+const FAKE_TOKEN = `ghp_${'x'.repeat(36)}`;
 const RANDOM = 'q7Rk2Vx9Lm4Np8Ts3Wz6Yb1Hc5';
 
 describe('findSecret', () => {
@@ -28,6 +31,13 @@ describe('findSecret', () => {
     ['API key', `glrt-${RANDOM}`],
     ['API key', `SG.${RANDOM.slice(0, 22)}.${RANDOM}${RANDOM.slice(0, 17)}`],
     ['private key', `PuTTY-User-Key-File-3: ssh-ed25519`],
+    ['API key', `gho_${'x'.repeat(36)}`],
+    ['API key', `github_pat_${RANDOM}`],
+    ['API key', `glpat-${RANDOM}`],
+    ['API key', `xoxb-${RANDOM}`],
+    ['API key', `sk_live_${RANDOM}`],
+    ['API key', `ASIA${'ABCDEFGH23456789'}`],
+    ['API key', `dapi${'0123456789abcdef'.repeat(2)}`],
     ['private key', `AGE-SECRET-KEY-1${RANDOM.toUpperCase()}`],
     ['webhook URL', `https://hooks.slack.com/services/T0/B0/${RANDOM}`],
     ['secret assignment', `SERVICE_KEY: ${RANDOM}`],
@@ -82,4 +92,73 @@ describe('findSecret', () => {
       expect(findSecret(text)).toBeUndefined();
     });
   }
+});
+
+describe('output', () => {
+  test('a call the plugin allowed has its output withheld when it holds a credential, and runs again under the classifier', async ($, on) => {
+    const w = world($, on, { output: `TOKEN=${FAKE_TOKEN}` });
+    await auto($);
+    const result = await $.tool.call({
+      tool: 'Bash',
+      command: 'cat config.json',
+      tool_use_id: 't1',
+    } as never);
+    expect(w.ran).toBe(1);
+    expect(result.deny).toContain('API key');
+    expect(result.deny).toMatch(/^The call was made/);
+    expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
+    expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
+    expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
+  });
+
+  test('output is passed on when it holds no credential, or the plugin did not allow the call', async ($, on) => {
+    const w = world($, on, { output: 'version 1.2.3' });
+    await auto($);
+    const call = (id: string) =>
+      $.tool.call({ tool: 'Bash', command: 'cat config.json', tool_use_id: id } as never);
+    expect((await call('t1')).text).toBe('version 1.2.3');
+    w.output = `TOKEN=${FAKE_TOKEN}`;
+    w.core = { decision: 'allow' };
+    expect((await call('t2')).text).toContain(FAKE_TOKEN);
+  });
+
+  test("output the model would read later, from a file, from a hook's own result, or beside it is checked or withheld", async ($, on) => {
+    const w = world($, on, {
+      output: 'Output too large, saved to /out/t1.txt',
+      record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
+    });
+    await auto($);
+    const call = (command: string, id: string) =>
+      $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
+    w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
+    expect((await call('cat a.log', 't1')).deny).toContain('API key');
+    w.files.set('/out/t1.txt', 'line\n'.repeat(3));
+    expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
+    w.files.delete('/out/t1.txt');
+    expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
+    w.record = { stdout: '', backgroundTaskId: 'b1' };
+    expect((await call('cat d.log', 't4')).deny).toContain('background');
+    w.output = undefined;
+    w.record = { stdout: `TOKEN=${FAKE_TOKEN}` };
+    expect((await call('cat e.log', 't5')).deny).toContain('API key');
+    w.output = 'ok';
+    w.record = undefined;
+    w.context = [`TOKEN=${FAKE_TOKEN}`];
+    expect((await call('cat f.log', 't6')).deny).toContain('API key');
+  });
+
+  test('a check that fails withholds the output instead of showing it', async ($, on) => {
+    world($, on, {
+      record: {
+        get backgroundTaskId(): string {
+          throw new Error('unreadable record');
+        },
+      },
+    });
+    await auto($);
+    const call = (id: string) =>
+      $.tool.call({ tool: 'Bash', command: 'cat a.log', tool_use_id: id } as never);
+    expect((await call('t1')).deny).toContain('checking it failed');
+    expect((await check($, 'Bash', bash('cat a.log'))).decision).toBe('ask');
+  });
 });
