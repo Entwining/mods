@@ -53,6 +53,7 @@ const ALLOW = JSON.stringify({ reason: 'a reversible step of the task', verdict:
 const REVIEW = JSON.stringify({ reason: 'sends a message nobody asked for', verdict: 'review' });
 // Built at run time, so no scanner takes the source for a leaked token.
 const FAKE_TOKEN = `ghp_${'x'.repeat(36)}`;
+const ENGINE_VERSION = '0.0.0-synthetic';
 const LOG = '/home/u/.claude/preallow/s1.jsonl';
 const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
 const REFUSAL =
@@ -157,6 +158,7 @@ function world($: Engine, on: On, partial: Partial<World> = {}): World {
     } as never;
   });
   on('session.cwd', async () => ({ value: '/w' }) as never);
+  on('session.version', async () => ({ value: { version: ENGINE_VERSION } }) as never);
   on('session.usage', async () => ({ value: { startedAt: 0 } }) as never);
   on('process.run', async (_$, e) => {
     const { argv } = e as { argv: readonly string[] };
@@ -282,15 +284,38 @@ describe('the judge', () => {
     expect(w.modelCalls).toHaveLength(0);
   });
 
-  test('an ask from a settings rule, a hook, or an organization ceiling is left to the core', async ($, on) => {
-    const w = world($, on, { core: { decision: 'ask', rule: 'Bash(make:*)' } });
+  test("an ask from a settings rule, a hook, an option's own check, a host, or an organization ceiling is left to the core, and logged", async ($, on) => {
+    const w = world($, on);
     await auto($);
-    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
-    w.core = { decision: 'ask', hook: 'PreToolUse' };
-    expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
-    w.core = { decision: 'ask' };
-    expect((await check($, 'Bash', bash('make'), { ceiling: 'ask' })).decision).toBe('ask');
+    const asks: Array<[ToolCheckResult, Record<string, unknown>]> = [
+      [{ decision: 'ask', rule: 'Bash(make:*)' }, {}],
+      [{ decision: 'ask', hook: 'PreToolUse' }, {}],
+      [{ decision: 'ask', setting: 'permissions.blockReadsOutsideWorkingDirectories' }, {}],
+      [{ decision: 'ask', decider: 'host' }, {}],
+      [{ decision: 'ask' }, { ceiling: 'ask' }],
+    ];
+    for (const [i, [core, call]] of asks.entries()) {
+      w.core = { ...core, reason: 'synthetic core reason' };
+      expect(await check($, 'Bash', bash('make'), { tool_use_id: `t${i}`, ...call })).toMatchObject(
+        w.core,
+      );
+    }
     expect(w.modelCalls).toHaveLength(0);
+    const lines = await w.logged(5);
+    expect(lines.map((line) => [line.event, line.heldBy, line[line.heldBy as string]])).toEqual([
+      ['held', 'rule', 'Bash(make:*)'],
+      ['held', 'hook', 'PreToolUse'],
+      ['held', 'setting', 'permissions.blockReadsOutsideWorkingDirectories'],
+      ['held', 'decider', 'host'],
+      ['held', 'ceiling', 'ask'],
+    ]);
+    expect(lines.every((line) => line.coreReason === 'synthetic core reason')).toBe(true);
+  });
+
+  test('a field of the core answer the plugin does not know leaves the ask to the judge', async ($, on) => {
+    world($, on, { core: { decision: 'ask', traceId: 'x1' } as ToolCheckResult });
+    await auto($);
+    expect((await check($, 'Bash', bash('make'))).decision).toBe('allow');
   });
 
   test('a tool whose verdict the engine keeps never reaches the judge', async ($, on) => {
@@ -396,12 +421,20 @@ describe('the judge', () => {
     await auto($);
     await check($, 'Bash', bash('make setup'));
     const [line] = await w.logged(1);
-    expect([line!.event, line!.tool, line!.verdict, line!.input, line!.coreReason]).toEqual([
+    expect([
+      line!.event,
+      line!.tool,
+      line!.verdict,
+      line!.input,
+      line!.coreReason,
+      line!.engine,
+    ]).toEqual([
       'check',
       'Bash',
       'allow',
       '{"command":"make setup"}',
       'synthetic core reason',
+      ENGINE_VERSION,
     ]);
   });
 });
@@ -517,17 +550,33 @@ describe('what the judge reads', () => {
   });
 
   test('a full store drops the least recent conversations to keep the newest words', async ($, on) => {
+    // Two conversations that together leave no room in the store's 4 MiB.
+    const size = 2_100_000;
     const w = world($, on, {
       store: new Map([
-        ['turns:b', kept(2, 'b'.repeat(400))],
-        ['turns:a', kept(1, 'a'.repeat(400))],
+        ['turns:b', kept(2, 'b'.repeat(size))],
+        ['turns:a', kept(1, 'a'.repeat(size))],
         ['turns:s1', kept(3, 'earlier')],
       ]),
-      storeLimit: 600,
     });
     await say($, 'later');
     expect([...w.store.keys()]).toEqual(['turns:b', 'turns:s1']);
     expect(turnsOf(w)).toEqual(['earlier', 'later']);
+  });
+
+  test('a write refused while the store is far from full keeps the other conversations', async ($, on) => {
+    const w = world($, on, {
+      store: new Map([
+        ['turns:a', kept(1, 'delete nothing')],
+        ['turns:s1', kept(2, 'do not push')],
+      ]),
+    });
+    w.writeGate = async () => {
+      throw new Error('synthetic write failure');
+    };
+    await say($, 'fix the tests').catch(() => {});
+    expect([...w.store.keys()]).toEqual(['turns:a', 'turns:s1']);
+    expect(turnsOf(w)).toEqual(['do not push']);
   });
 });
 
@@ -703,6 +752,7 @@ describe('output', () => {
     } as never);
     expect(w.ran).toBe(1);
     expect(result.deny).toContain('API key');
+    expect(result.deny).toMatch(/^The call was made/);
     expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
     expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
     expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code';
-import type { EngineInterface, ModelEffort, Register } from 'claude-code';
+import type { EngineInterface, ModelEffort, Register, ToolCheckResult } from 'claude-code';
 
 import type { Modes } from '../types';
 import { gatherFacts } from './facts.ts';
@@ -14,8 +14,10 @@ const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes
 const TURNS_KEY = 'turns:';
 // The conversations written in least recently go first. Each is bounded by
 // what the judge reads (`addTurn`), but together they can still pass the
-// store's 4 MiB, so a write the store refuses makes room the same way.
+// store's limit, so a write the store refuses for its size makes room the
+// same way.
 const KEPT_CONVERSATIONS = 50;
+const STORE_LIMIT = 4 * 1024 * 1024;
 
 // `at` orders the conversations: the store keeps keys in the order they were
 // first set, whatever was written since.
@@ -34,6 +36,22 @@ const LOGGED_INPUT_CHARS = 2000;
 // and a question or a plan waits for the person.
 const ENGINE_DECIDED = new Set(['SubagentHandback', 'AskUserQuestion', 'ExitPlanMode']);
 
+// The fields of the core's answer that put an ask to someone other than the
+// classifier: a settings rule, a classic hook, an option's own check (the read
+// block, which asks the person), a host that answers the session's asks, and
+// an organization's ceiling. Every field but the verdict and its reason is
+// listed, so
+// `bun run typecheck` fails on a field the engine adds until it is marked
+// here; a field marked false is read as information and leaves the ask to the
+// judge.
+const HOLDS_ASK = {
+  rule: true,
+  hook: true,
+  setting: true,
+  decider: true,
+  ceiling: true,
+} satisfies Record<Exclude<keyof ToolCheckResult, 'decision' | 'reason'>, boolean>;
+
 // How the engine reports refusing a hook's allow of a tool only the
 // classifier may allow.
 const ENGINE_REFUSAL = 'Only the auto-mode classifier can allow';
@@ -42,6 +60,11 @@ const ENGINE_REFUSAL = 'Only the auto-mode classifier can allow';
 // carries no `deny` field.
 const CLASSIFIER_DENIAL =
   'Permission for this action was denied by the Claude Code auto mode classifier';
+
+// What the model reads in place of a withheld output. The call was made, so a
+// rerun repeats its effects, such as a message sent or a second server started.
+const WITHHELD = 'The call was made, and preallow withheld its output:';
+const RERUN = 'Running it again repeats its effects, and leaves it to the auto-mode classifier.';
 
 // Marks the user's answer to the agent's question among their words;
 // `JUDGE_SYSTEM` names it to say how a chosen option authorizes.
@@ -74,6 +97,15 @@ async function byAge($: EngineInterface, keys: readonly string[]): Promise<strin
   return keys.toSorted((a, b) => at.get(a)! - at.get(b)!);
 }
 
+// The store with `value` under `key`, in UTF-8 bytes of JSON text, which are
+// never fewer than the characters the store may count instead.
+async function storeBytes($: EngineInterface, key: string, value: unknown): Promise<number> {
+  const entries: Record<string, unknown> = {};
+  for (const other of await $.store.keys()) entries[other] = await $.store.get(other);
+  entries[key] = value;
+  return new TextEncoder().encode(JSON.stringify(entries)).length;
+}
+
 let storeTail: Promise<void> = Promise.resolve();
 
 // Writes one at a time, so a message is never lost to a concurrent write: a
@@ -92,8 +124,11 @@ function remember($: EngineInterface, text: string): Promise<void> {
           await $.store.set(key, kept);
           break;
         } catch (error) {
+          // A refusal while the store is under half its limit has another
+          // cause, which dropping conversations would not cure.
           const [oldest] = await byAge($, await otherConversations($, key));
-          if (oldest === undefined) throw error;
+          if (oldest === undefined || (await storeBytes($, key, kept)) < STORE_LIMIT / 2)
+            throw error;
           await $.store.delete(oldest);
         }
       }
@@ -192,7 +227,8 @@ let logTail: Promise<void> = Promise.resolve();
 const LOG_PART_BYTES = 1_000_000;
 
 // One JSON line per event, under ~/.claude/preallow, one file per
-// session and part.
+// session and part. Each line names the engine version, so a change in what
+// the plugin decides can be matched to an engine update.
 function record($: EngineInterface, entry: Record<string, unknown>): void {
   logTail = logTail
     .then(async () => {
@@ -206,9 +242,10 @@ function record($: EngineInterface, entry: Record<string, unknown>): void {
         path = `${base}.${part}.jsonl`;
       }
       const previous = (await $.fs.exists(path)) ? await $.fs.read(path) : '';
+      const { version } = await $.session.version();
       await $.fs.write(
         path,
-        `${previous}${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`,
+        `${previous}${JSON.stringify({ at: new Date().toISOString(), engine: version, ...entry })}\n`,
       );
     })
     .catch(() => {});
@@ -265,16 +302,27 @@ export const register: Register = (on, options) => {
 
   on('tool.check', async ($, e, next) => {
     const core = await next(e);
-    // A settings `ask` rule, a hook's ask, and an organization's ceiling are
-    // deciders the user or their organization chose.
-    if (
-      core.decision !== 'ask' ||
-      core.rule !== undefined ||
-      core.hook !== undefined ||
-      e.ceiling !== undefined
-    )
-      return core;
+    if (core.decision !== 'ask') return core;
     if ((await read($, modesRef))[e.agentId ?? 'main'] !== 'auto') return core;
+    // The engine stamps the ceiling on the verdict the chain returns, so the
+    // core's answer from `next` may lack it; the question carries it.
+    const marked: ToolCheckResult = { ...core, ceiling: e.ceiling };
+    const heldBy = (Object.keys(HOLDS_ASK) as Array<keyof typeof HOLDS_ASK>).find(
+      (field) => HOLDS_ASK[field] && marked[field] !== undefined,
+    );
+    if (heldBy !== undefined) {
+      if (e.tool_use_id !== undefined)
+        record($, {
+          event: 'held',
+          tool_use_id: e.tool_use_id,
+          agentId: e.agentId,
+          tool: e.tool,
+          heldBy,
+          [heldBy]: marked[heldBy],
+          coreReason: core.reason,
+        });
+      return core;
+    }
     if (ENGINE_DECIDED.has(e.tool)) {
       if (e.tool_use_id !== undefined)
         record($, {
@@ -373,9 +421,7 @@ export const register: Register = (on, options) => {
     if (why === undefined) return result;
     record($, { event: 'withheld', tool_use_id: id, why });
     coreCalls.add(key);
-    return {
-      deny: `preallow withheld the output: ${why}. Running the same call again leaves it to the auto-mode classifier.`,
-    };
+    return { deny: `${WITHHELD} ${why}. ${RERUN}` };
   }).catch(($, e, next) => {
     // The tool has run: a check that failed or ran out of time must not show
     // the output it was checking.
@@ -383,8 +429,6 @@ export const register: Register = (on, options) => {
     if (key === undefined || !next.called) return next(e);
     allowedCalls.delete(e.tool_use_id);
     coreCalls.add(key);
-    return {
-      deny: 'preallow withheld the output: checking it failed. Running the same call again leaves it to the auto-mode classifier.',
-    };
+    return { deny: `${WITHHELD} checking it failed. ${RERUN}` };
   });
 };

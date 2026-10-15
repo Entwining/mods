@@ -92,6 +92,13 @@ describe('judge', () => {
     const unsure = replies(CHECK, CHECK);
     expect((await judge(CALL, unsure.complete, async () => ({}))).verdict).toBe('pass');
   });
+
+  test('an input too long to read in full passes without asking the model', async () => {
+    const answered = replies(ALLOW);
+    const long = { ...CALL, input: { content: 'x'.repeat(100_000) } };
+    expect((await judge(long, answered.complete, async () => ({}))).verdict).toBe('pass');
+    expect(answered.prompts).toHaveLength(0);
+  });
 });
 
 describe('judgePrompt', () => {
@@ -120,16 +127,17 @@ describe('judgePrompt', () => {
     expect(JSON.stringify(prompt.user_messages).length).toBeLessThan(26_000);
   });
 
-  test('a long message, brief, or input keeps its head and tail', () => {
+  test('a long message or brief keeps its head and tail, and the input stays whole', () => {
     const long = `HEAD${'x'.repeat(20_000)}TAIL`;
     const prompt = JSON.parse(
       judgePrompt({ tool: 'Write', input: { content: long }, words: words(long), brief: long }),
     );
-    for (const text of [prompt.user_messages[0], prompt.subagent_brief, prompt.input]) {
+    for (const text of [prompt.user_messages[0], prompt.subagent_brief]) {
       expect(text.length).toBeLessThan(9000);
-      expect(text).toMatch(/^HEAD|^\{"content":"HEAD/);
-      expect(text).toMatch(/TAIL"?\}?$/);
+      expect(text).toMatch(/^HEAD/);
+      expect(text).toMatch(/TAIL$/);
       expect(text).toContain('characters left out');
     }
+    expect(prompt.input).toEqual({ content: long });
   });
 });

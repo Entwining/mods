@@ -75,7 +75,9 @@ Reply with exactly one JSON object and nothing else: {"reason": "<one sentence>"
 
 const TURN_CHARS = 4000;
 const TURNS_CHARS = 24_000;
-const INPUT_CHARS = 8000;
+// The call runs with its whole input, so the judge reads all of it; an input
+// longer than this goes to the classifier unjudged.
+const INPUT_CHARS = 100_000;
 const BRIEF_CHARS = 8000;
 
 // The head and tail of a long text, which hold a message's request and its
@@ -105,14 +107,13 @@ function userMessages({ turns: [first, ...newest], leftOut }: UserWords): string
 }
 
 export function judgePrompt(call: JudgeCase): string {
-  const input = JSON.stringify(call.input) ?? 'null';
   return JSON.stringify(
     {
       user_messages: userMessages(call.words),
       ...(call.brief === undefined ? {} : { subagent_brief: clip(call.brief, BRIEF_CHARS) }),
       cwd: call.cwd,
       tool: call.tool,
-      input: input.length > INPUT_CHARS ? clip(input, INPUT_CHARS) : call.input,
+      input: call.input,
       facts: call.facts,
     },
     null,
@@ -188,6 +189,9 @@ async function ask(complete: Complete, call: JudgeCase): Promise<Reply> {
 // One round of checks at most: the judge decides with the facts it asked
 // for, and passes when they cannot be read or still leave it unsure.
 export async function judge(call: JudgeCase, complete: Complete, gather: Gather): Promise<Verdict> {
+  const inputChars = (JSON.stringify(call.input) ?? '').length;
+  if (inputChars > INPUT_CHARS)
+    return { verdict: 'pass', reason: `input of ${inputChars} characters, too long to judge` };
   const first = await ask(complete, call);
   if (first.verdict !== 'check') return first;
   const checked = first.check;
