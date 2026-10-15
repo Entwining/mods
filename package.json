@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "validate": "claude plugin validate . && claude plugin validate plugins/preallow",
     "test": "claude plugin test plugins/preallow",
-    "typecheck": "tsc -p plugins/preallow"
+    "typecheck": "tsc -p plugins/preallow",
+    "gitleaks": "bun scripts/gitleaks.ts && oxfmt plugins/preallow/hooks/gitleaks.generated.ts"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.300",

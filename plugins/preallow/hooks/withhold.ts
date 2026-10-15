@@ -4,6 +4,8 @@
 
 import type { EngineInterface } from 'claude-code';
 
+import { findLeak } from './gitleaks.ts';
+
 // Every quantifier that could start at each character of a long run is
 // bounded or stops at the end of its line, so a scan stays linear on a large
 // output within the hook's budget.
@@ -27,10 +29,8 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
     'private key',
     /-----BEGIN [A-Z ]{0,20}PRIVATE KEY(?: BLOCK)?-----|PuTTY-User-Key-File-\d|AGE-SECRET-KEY-1/,
   ],
-  [
-    'API key',
-    /\b(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{20,}|(?:AKIA|ASIA)[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|hf_[A-Za-z]{34,}|npm_[A-Za-z0-9]{36}|glrt-[A-Za-z0-9_-]{20,}|dapi[a-f0-9]{32}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43})/,
-  ],
+  // Providers that share the `sk-` prefix in formats gitleaks does not know.
+  ['API key', /\bsk-[A-Za-z0-9_-]{20,}/],
   ['JSON web token', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
   [
     'URL credential',
@@ -71,9 +71,10 @@ const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
   ['registry credential', /"auth"\s*:\s*"[A-Za-z0-9+/]{16,}={0,2}"/],
 ];
 
-// The kind of credential-shaped value the output holds, in SECRET_SHAPES order.
+// The kind of credential-shaped value the output holds: a shape above, in
+// order, or else the id of a gitleaks rule for a provider's token format.
 export function findSecret(text: string): string | undefined {
-  return SECRET_SHAPES.find(([, shape]) => shape.test(text))?.[0];
+  return SECRET_SHAPES.find(([, shape]) => shape.test(text))?.[0] ?? findLeak(text);
 }
 
 // What the model reads in place of a withheld output. The call was made, so a

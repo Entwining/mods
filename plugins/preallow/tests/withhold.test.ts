@@ -1,18 +1,21 @@
 import { describe, expect, test } from 'claude-code/testing';
+import { rules } from '../hooks/gitleaks.generated.ts';
 import { findSecret } from '../hooks/withhold.ts';
 import { auto, bash, check } from './session.ts';
 import { world } from './world.ts';
 
 // Values are built at run time, so no scanner takes the source for a leak.
-const FAKE_TOKEN = `ghp_${'x'.repeat(36)}`;
 const RANDOM = 'q7Rk2Vx9Lm4Np8Ts3Wz6Yb1Hc5';
+const FAKE_TOKEN = `sk-${RANDOM}`;
+// A value spread evenly over its alphabet, as uniform as a generated token.
+const B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const mixed = (n: number, alphabet = B62) =>
+  Array.from({ length: n }, (_, i) => alphabet[(i * 7) % alphabet.length]).join('');
 
 describe('findSecret', () => {
   const found: Array<[string, string]> = [
     ['private key', `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----`],
-    ['API key', `key: ghp_${'x'.repeat(36)}`],
     ['API key', `sk-ant-api03-${RANDOM}`],
-    ['API key', `AKIA${'ABCDEFGH23456789'}`],
     ['JSON web token', `eyJ${RANDOM}.eyJ${RANDOM}.${RANDOM}`],
     ['URL credential', `proxy=http://user:${RANDOM.slice(0, 10)}@10.0.0.1:3128`],
     ['auth header', `Authorization: Basic ${RANDOM}`],
@@ -20,24 +23,12 @@ describe('findSecret', () => {
     ['bearer token', `curl -H "x: Bearer ya29.${RANDOM}"`],
     ['secret assignment', `DB_PASSWORD="${RANDOM}"`],
     ['private key', `-----BEGIN PGP ${'PRIVATE KEY'} BLOCK-----`],
-    ['API key', `AIza${RANDOM}${'x'.repeat(9)}`],
-    ['API key', `hf_${'abcdefghij'.repeat(4)}`],
     ['secret assignment', `aws_secret_access_key = ${RANDOM}`],
     ['secret assignment', `SERVICE_KEY=${RANDOM}`],
     ['secret assignment', `"token": "${RANDOM}.${RANDOM}"`],
     ['secret assignment', `the token is token=${RANDOM}.`],
     ['netrc password', `machine example.com login u password ${'hunter'}`],
-    ['API key', `npm_${'aB3'.repeat(12)}`],
-    ['API key', `glrt-${RANDOM}`],
-    ['API key', `SG.${RANDOM.slice(0, 22)}.${RANDOM}${RANDOM.slice(0, 17)}`],
     ['private key', `PuTTY-User-Key-File-3: ssh-ed25519`],
-    ['API key', `gho_${'x'.repeat(36)}`],
-    ['API key', `github_pat_${RANDOM}`],
-    ['API key', `glpat-${RANDOM}`],
-    ['API key', `xoxb-${RANDOM}`],
-    ['API key', `sk_live_${RANDOM}`],
-    ['API key', `ASIA${'ABCDEFGH23456789'}`],
-    ['API key', `dapi${'0123456789abcdef'.repeat(2)}`],
     ['private key', `AGE-SECRET-KEY-1${RANDOM.toUpperCase()}`],
     ['webhook URL', `https://hooks.slack.com/services/T0/B0/${RANDOM}`],
     ['secret assignment', `SERVICE_KEY: ${RANDOM}`],
@@ -48,6 +39,14 @@ describe('findSecret', () => {
     ['session cookie', `Cookie: theme=dark; sessionid=${RANDOM}`],
     ['session cookie', `curl -b 'connect.sid=s%3A${RANDOM}.${RANDOM}' https://example.com`],
     ['session cookie', `Set-Cookie: PHPSESSID=${RANDOM.toLowerCase()}; Path=/`],
+    ['github-pat', `key: ghp_${mixed(36)}`],
+    ['aws-access-token', `AKIA${mixed(16, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')}`],
+    ['slack-bot-token', `xoxb-1234567890-1234567890${mixed(24)}`],
+    ['stripe-access-token', `sk_live_${mixed(24)}`],
+    ['curl-auth-user', `curl -u admin:${mixed(12)} https://example.com`],
+    ['kubernetes-secret-yaml', `kind: Secret\ndata:\n  cert: ${mixed(24)}`],
+    ['npm-access-token', `The token is npm_${mixed(36)}.`],
+    ['atlassian-api-token', `ATATT3${mixed(186)}`],
   ];
   for (const [kind, text] of found) {
     test(`${kind}: ${text}`, () => {
@@ -71,6 +70,14 @@ describe('findSecret', () => {
     `sessionId=${['3f2a9c4e', '7b1d', '4e8a', '9c2f', '5d6e7a8b9c0d'].join('-')}`,
     'session_timeout=3600',
     `considered=${RANDOM}`,
+    // Too uniform for gitleaks' rule, whose entropy is taken from the value
+    // alone; a known example key; a stopword; and a Secret in the document
+    // after the data.
+    `ghp_${'x'.repeat(36)}`,
+    'curl -u aaa:aaaaaaaaaa https://example.com',
+    `AKIA${'IOSFODNN7'}EXAMPLE`,
+    `hf_${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}abcdefgh`,
+    `data:\n  color: ${'Ymx1ZQ'.repeat(3)}\n---\napiVersion: v1\nkind: Secret\ntype: Opaque`,
   ];
   for (const [name, run] of [
     ['word characters and hyphens', 'a-'.repeat(500_000)],
@@ -86,6 +93,16 @@ describe('findSecret', () => {
       expect(performance.now() - start).toBeLessThan(2000);
     });
   }
+
+  test("an output holding every gitleaks rule's keyword before long runs, and no secret, scans within the hook's budget", () => {
+    const keywords = [...new Set(rules.flatMap((rule) => rule.keywords))];
+    for (const run of ['.', 'a.', ' ']) {
+      const unit = keywords.map((k) => `${k}${run.repeat(400)}`).join(' ');
+      const start = performance.now();
+      expect(findSecret(unit.repeat(Math.ceil(1_000_000 / unit.length)))).toBeUndefined();
+      expect(performance.now() - start).toBeLessThan(2000);
+    }
+  });
 
   for (const text of clean) {
     test(`no secret: ${text}`, () => {
