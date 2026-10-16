@@ -30,3 +30,7 @@ This repository is the `entwining-mods` Claude Code marketplace. Each mod is a p
 Use Conventional Commits: `type(scope): summary`, with the mod's name as the scope for a change inside one mod. A change users should receive goes into the `CHANGELOG.md` entry of the mod's next release in the same commit. Versions go 0.0.1, 0.0.2, ... until the user declares a mod 1.0.0, one step per release, not per commit: the first such change after a release on `main` bumps `version` in the mod's `plugin.json` and opens the entry, and later changes before the next release extend that entry. Any change to the `version` string reaches installed users.
 
 Prefer merging a pull request by fast-forwarding `main` to its head (`git merge --ff-only`) and pushing, which GitHub records as the pull request's merge and which keeps the commits CI checked, signatures included; when `main` has moved past the branch's base, rebase the branch, push it, and wait for its checks first. GitHub's merge buttons are also fine, but rebase merge drops the signatures.
+
+## Dependency updates
+
+Before changing `.github/renovate.json`, or deciding how a dependency's updates are grouped, delayed, or merged, read the shared Renovate policy in full: `gh repo read-file skills/renovate/SKILL.md -R Entwining/renovate-config`.
