@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>Entwining/renovate-config", "schedule:daily"],
+  "description": [
+    "This repository writes type-prefixed commit subjects itself, so Renovate follows the same convention.",
+    "Claude Code releases most days, so updates are checked daily, and its non-major updates go with the routine group like any other dependency."
+  ],
+  "semanticCommits": "enabled",
+  "packageRules": [
+    {
+      "description": "CI fails on the gitleaks release that scripts/gitleaks.ts pins until someone runs `bun run gitleaks` on its branch.",
+      "matchDepNames": ["gitleaks/gitleaks"],
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "description": "The check runs oxfmt --check on the whole repository, so a 0.x update that changes formatting fails it instead of merging.",
+      "matchPackageNames": ["oxfmt"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchIsBreaking": true,
+      "automerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/gitleaks\\.ts$/"],
+      "matchStrings": ["const VERSION = '(?<currentValue>v[^']+)';"],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-releases"
+    }
+  ]
+}
