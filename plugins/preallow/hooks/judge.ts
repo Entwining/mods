@@ -3,7 +3,7 @@
 // functions, so an evaluation outside the engine runs the same prompt,
 // parsing, and checks; `judgeCall` binds them to the session.
 
-import type { EngineInterface, ModelEffort } from 'claude-code';
+import type { EngineInterface, ModelEffort, ModelUsage } from 'claude-code';
 
 import { gatherFacts, type FactRequest } from './facts.ts';
 import { JUDGE_SYSTEM } from './policy.ts';
@@ -117,8 +117,9 @@ export async function judgeCall(
   tool: string,
   input: unknown,
   agentId: string | undefined,
-): Promise<Verdict & { ms: number }> {
+): Promise<Verdict & { ms: number; usage: ModelUsage[] }> {
   const started = Date.now();
+  const usage: ModelUsage[] = [];
   // Read inside the hook: a subagent's loop may run in a directory of its own.
   const cwd = await $.session.cwd();
   const verdict = await judge(
@@ -133,11 +134,14 @@ export async function judgeCall(
       const reply = await $.model.complete({
         model: settings.model,
         effort: settings.effort as ModelEffort,
-        system,
+        // Only the policy is marked: the words are chosen per call, so a mark
+        // on the prompt would pay for cache writes that later calls rarely read.
+        system: [{ text: system, cache: true }],
         prompt,
         maxTokens: 8192,
         timeoutMs: JUDGE_TIMEOUT_MS,
       });
+      usage.push(reply.usage);
       if (reply.isAnswered) return reply.text;
       throw new Error(
         reply.reason === 'api-error' ? `api-error ${reply.error} (${reply.status})` : reply.reason,
@@ -157,5 +161,5 @@ export async function judgeCall(
         requests,
       ),
   );
-  return { ...verdict, ms: Date.now() - started };
+  return { ...verdict, ms: Date.now() - started, usage };
 }

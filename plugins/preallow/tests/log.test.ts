@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 
 import { auto, bash, check } from './session.ts';
-import { DENIAL, ENGINE_VERSION, LOG, REFUSAL, REVIEW, world } from './world.ts';
+import { DENIAL, ENGINE_VERSION, LOG, REFUSAL, REVIEW, usageOf, world } from './world.ts';
 
 const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
 
@@ -25,6 +25,21 @@ describe('the log', () => {
       '{"command":"make setup"}',
       'synthetic core reason',
       ENGINE_VERSION,
+    ]);
+  });
+
+  test('a check line carries what each judge call cost and the settings it ran on', async ($, on) => {
+    const w = world($, on, {
+      replies: [JSON.stringify({ reason: 'r', verdict: 'check', check: [{ path: '/w' }] })],
+    });
+    await auto($);
+    await check($, 'Bash', bash('rm -r build'));
+    const [line] = await w.logged(1);
+    const { model, effort } = w.modelCalls[0]!;
+    expect([line!.model, line!.effort, line!.usage]).toEqual([
+      model,
+      effort,
+      [usageOf(1), usageOf(2)],
     ]);
   });
 

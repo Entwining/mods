@@ -2,7 +2,7 @@
 
 import { mock } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
-import type { On, ToolCheckResult } from 'claude-code';
+import type { ModelTextBlock, On, ToolCheckResult } from 'claude-code';
 
 export type World = {
   core: ToolCheckResult;
@@ -13,7 +13,7 @@ export type World = {
   modelCalls: Array<{
     model: string;
     effort?: string;
-    system: string;
+    systemBlocks?: readonly ModelTextBlock[];
     prompt: string;
     timeoutMs?: number;
   }>;
@@ -63,6 +63,14 @@ export const REFUSAL =
   "Only the auto-mode classifier can allow mcp__srv__handoff: an allow of type 'hook' is not the classifier's verdict";
 export const DENIAL =
   "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Synthetic]. If you have other tasks that don't depend on this action, continue working on those.";
+
+// What the judge model's nth call costs, distinct for each call.
+export const usageOf = (n: number) => ({
+  input_tokens: n,
+  output_tokens: 10 * n,
+  cache_read_input_tokens: 100 * n,
+  cache_creation_input_tokens: 1000 * n,
+});
 
 // Everything beneath the plugin: the engine's own decision, the judge model,
 // subagent transcripts, and an in-memory log folder. A tool call asks for its
@@ -133,14 +141,14 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     return { value } as never;
   });
   on('model.complete', async (_$, e) => {
-    const { model, effort, system, prompt, timeoutMs } = e as World['modelCalls'][number];
-    w.modelCalls.push({ model, effort, system, prompt, timeoutMs });
+    const { model, effort, systemBlocks, prompt, timeoutMs } = e as World['modelCalls'][number];
+    w.modelCalls.push({ model, effort, systemBlocks, prompt, timeoutMs });
     const reply = w.replies.length > 0 ? w.replies.shift() : w.reply;
     const value =
       reply === undefined
         ? { isAnswered: false, reason: 'api-error', error: 'invalid_request', status: 400 }
         : { isAnswered: true, text: reply };
-    return { value: { ...value, usage: {} } } as never;
+    return { value: { ...value, usage: usageOf(w.modelCalls.length) } } as never;
   });
   on('session.cwd', async () => ({ value: '/w' }) as never);
   on('session.version', async () => ({ value: { version: ENGINE_VERSION } }) as never);

@@ -22,7 +22,7 @@ When whether a call can be undone turns on the state of files or git refs, the j
 - For a subagent's call, the brief its parent agent gave it, up to 8,000 characters. The brief carries your authorization only where it quotes you or restates your task.
 - The directory the call's loop runs in, and what the checks it asked for found.
 
-The judge runs through your session's own model client, one call per checked tool call and one more after a check. The verdict is the JSON object that ends the judge's reply; a call the judge does not answer within 90 seconds, a reply that does not end with a verdict or that states different verdicts along the way, and anything other than `allow` go to the classifier.
+The judge runs through your session's own model client, one call per checked tool call and one more after a check. Its instructions, the same for every call, are marked for the prompt cache, so a call soon after another can read them from the cache instead of paying for them in full. The verdict is the JSON object that ends the judge's reply; a call the judge does not answer within 90 seconds, a reply that does not end with a verdict or that states different verdicts along the way, and anything other than `allow` go to the classifier.
 
 ## Settings
 
@@ -58,7 +58,7 @@ Claude Code does not update plugins from third-party marketplaces by default. In
 The plugin logs one JSON line per event to `~/.claude/preallow/<session-id>.jsonl`, keyed by `tool_use_id` and carrying the Claude Code version in `engine`; past about 1 MB the log goes on in `<session-id>.1.jsonl`, `<session-id>.2.jsonl`, and so on:
 
 - `held`: an `ask` left to its decider without asking the judge (see What it leaves to the classifier), with the field that named the decider in `heldBy` and its value, and why the core asked.
-- `check`: the tool, its input (up to 2,000 characters), why the core asked (`coreReason`), the verdict (`allow` or `pass`), the judge's reason, what it asked to check and what the checks found, and how long it took.
+- `check`: the tool, its input (up to 2,000 characters), why the core asked (`coreReason`), the verdict (`allow` or `pass`), the judge's reason, what it asked to check and what the checks found, how long it took, the `model` and `effort` settings it ran on, and in `usage` what each model call cost, one entry per call with the four token counts the API reports (`input_tokens` counts only the input neither read from nor written to the cache).
 - `reserved`: a call of a tool whose verdict the engine keeps, left to it without asking the judge, with why the core asked.
 - `background`: a call run in the background, left to the classifier without asking the judge, with why the core asked.
 - `refused`: the engine refused a call the plugin allowed because only the classifier may allow that tool, with the start of its message. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
@@ -70,6 +70,7 @@ To find calls the judge should not have allowed, read the `check` lines whose ve
 ## Known gaps
 
 - The judge does not see every word of a long conversation. Past 24,000 characters it leaves out messages that set no limit, then those that only narrow what the agent may do, then those that rule something out, each time those sharing the fewest words with the call and then the oldest first; a prohibition worded without "don't", "never", "only", or the like counts as setting no limit. Past 64,000 characters the plugin keeps only your first message and the newest. Repeat a prohibition in a short message when it matters.
+- On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with the words chosen for each call, so its instructions may be written to the cache on every call without being read back; the `usage` in each `check` line shows whether they are.
 - A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
 - `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
 - The credential check knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, passes unchecked, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one. JSON escaping can also hide a quoted password's shape.

@@ -1,6 +1,6 @@
 {
   "name": "preallow",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Lets Claude Code auto mode run the steps of the task you gave without the classifier: a model judge allows what is reversible or what you explicitly asked for",
   "author": {
     "name": "Entwining"

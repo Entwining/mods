@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'claude-code/testing';
 import type { ToolCheckResult } from 'claude-code';
 
+import { JUDGE_SYSTEM } from '../hooks/policy.ts';
 import { auto, bash, check, judged, say } from './session.ts';
-import { ALLOW, REVIEW, world } from './world.ts';
+import { ALLOW, REVIEW, usageOf, world } from './world.ts';
 
 describe('tool.check', () => {
   test('a call the judge allows runs without the classifier', async ($, on) => {
@@ -121,19 +122,20 @@ describe('tool.check', () => {
     expect(w.ran).toBe(0);
   });
 
-  test('a judge that gives no reply leaves the call to the classifier, saying why', async ($, on) => {
+  test('a judge that gives no reply leaves the call to the classifier, saying why and what the call cost', async ($, on) => {
     const w = world($, on, { reply: undefined });
     await auto($);
     expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
     const [line] = await w.logged(1);
-    expect([line!.verdict, line!.reason]).toEqual([
+    expect([line!.verdict, line!.reason, line!.usage]).toEqual([
       'pass',
       expect.stringContaining('api-error invalid_request (400)'),
+      [usageOf(1)],
     ]);
   });
 
   test(
-    'the judge runs on the model and effort the user set, as written, with a time limit',
+    'the judge runs on the model and effort the user set, as written, with a time limit and its policy cached',
     {
       options: { model: 'some-model-id', effort: 'some-effort' },
     },
@@ -145,6 +147,7 @@ describe('tool.check', () => {
         ['some-model-id', 'some-effort'],
       ]);
       expect(w.modelCalls[0]!.timeoutMs).toBeGreaterThan(0);
+      expect(w.modelCalls[0]!.systemBlocks).toEqual([{ text: JUDGE_SYSTEM, cache: true }]);
     },
   );
 

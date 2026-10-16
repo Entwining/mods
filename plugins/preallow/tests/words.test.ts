@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing';
 
-import { JUDGE_SYSTEM } from '../hooks/policy.ts';
 import { addTurn, NO_WORDS } from '../hooks/words.ts';
 import { auto, bash, check, judged, say, turnsOf } from './session.ts';
 import { world } from './world.ts';
@@ -26,7 +25,6 @@ describe('what the judge reads', () => {
       tool: 'Bash',
       input: { command: 'make' },
     });
-    expect(w.modelCalls[0]!.system).toBe(JUDGE_SYSTEM);
   });
 
   test('a subagent call carries the brief its parent gave it', async ($, on) => {

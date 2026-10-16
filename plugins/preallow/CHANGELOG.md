@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.6 - 2026-10-16
+
+- The judge's instructions are marked for the prompt cache, so a call soon after another can read them from the cache instead of paying for them in full.
+- Each `check` line in the log records the `model` and `effort` settings the judge ran on and, in `usage`, the token counts of each model call it made.
+
 ## 0.0.5 - 2026-10-16
 
 - A call moved to the background keeps its hand-off when its initial output passes the credential check, so the agent can follow the running task. A withheld hand-off or failed check preserves a checked task ID when available and warns against starting another run before checking the existing task.

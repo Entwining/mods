@@ -130,6 +130,9 @@ export const register: Register = (on, options) => {
       checked: verdict.checked,
       facts: verdict.facts,
       ms: verdict.ms,
+      model: settings.model,
+      effort: settings.effort,
+      usage: verdict.usage,
     });
 
     if (id !== undefined) {
