@@ -80,8 +80,18 @@ export function findSecret(text: string): string | undefined {
 // What the model reads in place of a withheld output. The call was made, so a
 // rerun repeats its effects, such as a message sent or a second server started.
 export const WITHHELD = 'The call was made, and preallow withheld its output:';
-export const RERUN =
-  'Running it again repeats its effects, and leaves it to the auto-mode classifier.';
+const RERUN = 'Running it again repeats its effects, and leaves it to the auto-mode classifier.';
+
+export function rerunWarning(output: unknown): string {
+  const { backgroundTaskId } = (output ?? {}) as { backgroundTaskId?: unknown };
+  if (backgroundTaskId === undefined) return RERUN;
+  // The task id goes back to the model even when the rest of the output cannot.
+  const recovery =
+    typeof backgroundTaskId === 'string' && findSecret(backgroundTaskId) === undefined
+      ? `Check task ${JSON.stringify(backgroundTaskId)} before starting another run.`
+      : 'Ask the user to inspect /tasks before starting another run.';
+  return `The task may still be running in the background. Withholding its output did not stop it. ${recovery}`;
+}
 
 // Why the output of a call the plugin allowed must be withheld, if it must:
 // what the model would read, including the full output a large result leaves
@@ -94,12 +104,9 @@ export async function withholding(
   output: unknown,
   context: readonly string[] | undefined,
 ): Promise<string | undefined> {
-  const { backgroundTaskId, persistedOutputPath } = (output ?? {}) as {
-    backgroundTaskId?: unknown;
+  const { persistedOutputPath } = (output ?? {}) as {
     persistedOutputPath?: unknown;
   };
-  if (backgroundTaskId !== undefined)
-    return 'the call moved to the background, where its output cannot be checked';
 
   let full = [text ?? JSON.stringify(output) ?? '', ...(context ?? [])].join('\n');
   if (typeof persistedOutputPath === 'string') {

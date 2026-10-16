@@ -4,7 +4,7 @@ import type { Register, ToolCheckResult } from 'claude-code';
 import type { Modes } from '../types';
 import { judgeCall, type JudgeSettings } from './judge.ts';
 import { loggedInput, record } from './log.ts';
-import { RERUN, WITHHELD, withholding } from './withhold.ts';
+import { rerunWarning, WITHHELD, withholding } from './withhold.ts';
 import { ANSWER_PREFIX, remember } from './words.ts';
 
 const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes);
@@ -177,6 +177,7 @@ export const register: Register = (on, options) => {
     }
 
     const why = await withholding($, result.text, result.result, result.context);
+    const warning = why === undefined ? undefined : rerunWarning(result.result);
     // Still listed while the check runs, so `.catch` withholds the output if
     // the check fails or runs out of time.
     allowedCalls.delete(id);
@@ -186,8 +187,8 @@ export const register: Register = (on, options) => {
     // After a call that answered without error the engine already tells the
     // model that it ran and a plugin withheld its result.
     const prefix = result.isError === true ? WITHHELD : 'preallow:';
-    return { deny: `${prefix} ${why}. ${RERUN}` };
-  }).catch(($, e, next) => {
+    return { deny: `${prefix} ${why}. ${warning}` };
+  }).catch(async ($, e, next) => {
     // The tool has run: a check that failed or ran out of time must not show
     // the output it was checking.
     const key = allowedCalls.get(e.tool_use_id);
@@ -195,6 +196,8 @@ export const register: Register = (on, options) => {
     allowedCalls.delete(e.tool_use_id);
     coreCalls.add(key);
     record($, { event: 'withheld', tool_use_id: e.tool_use_id, why: 'checking it failed' });
-    return { deny: `${WITHHELD} checking it failed. ${RERUN}` };
+    // In a catch handler, next replays the settled result without running the tool again.
+    const warning = rerunWarning((await next(e)).result);
+    return { deny: `${WITHHELD} checking it failed. ${warning}` };
   });
 };
