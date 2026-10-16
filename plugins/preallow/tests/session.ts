@@ -36,7 +36,7 @@ export function say(
   return $.prompt.submit({ text, wait: false, origin: { kind }, ...extra } as never);
 }
 
-export function judged(w: World, index = -1) {
+export function promptOf(w: World, index = -1) {
   return JSON.parse(w.modelCalls.at(index)!.prompt) as {
     user_messages: string[];
     subagent_brief?: string;

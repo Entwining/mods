@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
 
-import { auto, bash, check, judged, say, turnsOf } from './session.ts';
+import { auto, bash, check, promptOf, say, turnsOf } from './session.ts';
 import { world } from './world.ts';
 
 describe("answers to the agent's question", () => {
@@ -36,7 +36,7 @@ describe("answers to the agent's question", () => {
     await say($, 'tidy the repository');
     await ask($);
     await check($, 'Bash', bash('rm -r build cache notes-old'));
-    const [task, answer] = judged(w).user_messages;
+    const [task, answer] = promptOf(w).user_messages;
     expect(task).toBe('tidy the repository');
     expect(answer!.startsWith("Answer to the agent's question: {")).toBe(true);
     expect(JSON.parse(answer!.slice(answer!.indexOf('{')))).toEqual({

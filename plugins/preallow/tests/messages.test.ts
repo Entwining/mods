@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 
-import { addTurn, NO_WORDS } from '../hooks/words.ts';
-import { auto, bash, check, judged, say, turnsOf } from './session.ts';
+import { addTurn, NO_MESSAGES } from '../hooks/messages.ts';
+import { auto, bash, check, promptOf, say, turnsOf } from './session.ts';
 import { world } from './world.ts';
 
 // A conversation's words as the store keeps them, `at` its last write.
@@ -19,7 +19,7 @@ describe('what the judge reads', () => {
     w.dropsPrompt = true;
     await say($, 'a prompt a plugin beneath dropped');
     await check($, 'Bash', bash('make'));
-    expect(judged(w)).toEqual({
+    expect(promptOf(w)).toEqual({
       user_messages: ['fix the tests', 'and push when green'],
       cwd: '/w',
       tool: 'Bash',
@@ -41,11 +41,11 @@ describe('what the judge reads', () => {
     await auto($, 'auto', 'a1');
     await say($, 'migrate the scratch database');
     await check($, 'Bash', bash('make migrate'), { agentId: 'a1' });
-    expect(judged(w).user_messages).toEqual(['migrate the scratch database']);
-    expect(judged(w).subagent_brief).toBe('brief: run the migration on the scratch database');
+    expect(promptOf(w).user_messages).toEqual(['migrate the scratch database']);
+    expect(promptOf(w).subagent_brief).toBe('brief: run the migration on the scratch database');
     await auto($, 'auto', 'a2');
     await check($, 'Bash', bash('make migrate'), { agentId: 'a2' });
-    expect(judged(w).subagent_brief).toBeUndefined();
+    expect(promptOf(w).subagent_brief).toBeUndefined();
   });
 
   test('a conversation keeps the words given before its process ended', async ($, on) => {
@@ -55,7 +55,7 @@ describe('what the judge reads', () => {
     await auto($);
     await say($, 'go');
     await check($, 'Bash', bash('git push origin --delete old'));
-    expect(judged(w).user_messages).toEqual(['when I say go, delete the old branch', 'go']);
+    expect(promptOf(w).user_messages).toEqual(['when I say go, delete the old branch', 'go']);
   });
 
   test('a cleared or other conversation starts without the earlier words', async ($, on) => {
@@ -65,7 +65,7 @@ describe('what the judge reads', () => {
     w.sessionId = 's2';
     await say($, 'fix the tests');
     await check($, 'Bash', bash('make'));
-    expect(judged(w).user_messages).toEqual(['fix the tests']);
+    expect(promptOf(w).user_messages).toEqual(['fix the tests']);
   });
 
   test('messages sent at once are all kept', async ($, on) => {
@@ -102,14 +102,14 @@ describe('what the judge reads', () => {
     await check($, 'Bash', bash('make'));
     release();
     await saying;
-    expect(judged(w).user_messages).toEqual(['do not push']);
+    expect(promptOf(w).user_messages).toEqual(['do not push']);
   });
 
   test('characters JSON escapes count as stored, so 50 conversations fit, and the newest message stays', () => {
     const escaped = '\u0001'.repeat(16_000);
     const conversation = [...Array<string>(6).fill(escaped), 'do not push'].reduce(
       addTurn,
-      NO_WORDS,
+      NO_MESSAGES,
     );
     expect(conversation.turns.at(-1)).toBe('do not push');
     expect(JSON.stringify(conversation).length * 50).toBeLessThan(4 * 1024 * 1024);

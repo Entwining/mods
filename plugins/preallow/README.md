@@ -22,26 +22,26 @@ When whether a call can be undone turns on the state of files or git refs, the j
 - For a subagent's call, the brief its parent agent gave it, up to 8,000 characters. The brief carries your authorization only where it quotes you or restates your task.
 - The directory the call's loop runs in, and what the checks it asked for found.
 
-The judge runs through your session's own model client, one call per checked tool call and one more after a check. Its instructions, the same for every call, are marked for the prompt cache, so a call soon after another can read them from the cache instead of paying for them in full. The verdict is the JSON object that ends the judge's reply; a call the judge does not answer within 90 seconds, a reply that does not end with a verdict or that states different verdicts along the way, and anything other than `allow` go to the classifier.
+The judge runs through your session's own model client, one call per tool call it is asked about and one more after a check. Its instructions, the same for every call, are marked for the prompt cache, so a call soon after another can read them from the cache instead of paying for them in full. The verdict is the JSON object that ends the judge's reply; a call the judge does not answer within 90 seconds, a reply that does not end with a verdict or that states different verdicts along the way, and anything other than `allow` go to the classifier.
 
 ## Settings
 
 - `model`: the model the judge runs on, an alias or a full model id. Default `opus`.
 - `effort`: how hard the judge thinks. Default `medium`.
 
-Set them in `/config` or when you install. The plugin passes what you write to the model client unchanged; a value the client refuses sends every call to the classifier, and each `check` line in the log says why. The judge's policy was evaluated on `opus` at `medium` and `high`; at `low` it sent more of the calls it should allow to the classifier, and other models were not evaluated.
+Set them in `/config` or when you install. The plugin passes what you write to the model client unchanged; a value the client refuses sends every call to the classifier, and each `judged` line in the log says why. The judge's policy was evaluated on `opus` at `medium` and `high`; at `low` it sent more of the calls it should allow to the classifier, and other models were not evaluated.
 
 ## What it leaves to the classifier
 
 - Any mode other than `auto`, and a subagent's calls until the subagent's mode has been reported.
 - An `ask` from a settings rule, from a hook in your settings, from a setting's own check (the read block, `permissions.blockReadsOutsideWorkingDirectories`, which asks you rather than the classifier), from an organization's ceiling for the tool, or one put to a host that answers the session's asks. An `ask` from another plugin's hook reaches preallow looking like the core's own, so the judge may turn it into an allow: do not pair preallow with a plugin whose asks must stand.
-- A call run in the background (`run_in_background`), such as a dev server or a watcher: its output reaches the model after the call returns, where the plugin cannot check it.
-- A call whose output the plugin withheld, or whose allow the engine refused, when it runs again.
-- A tool whose verdict the engine keeps whatever a hook answers: a subagent's report to its parent (`SubagentHandback`), which only the classifier may allow, and a question to you or a plan for your approval (`AskUserQuestion`, `ExitPlanMode`), which wait for you. The judge is not asked, since its allow would be refused or ignored.
+- A call run in the background (`run_in_background`), such as a dev server or a watcher: its output reaches the model after the call returns, where the plugin cannot scan it.
+- A call whose output the plugin withheld, or whose allow the engine rejected, when it runs again.
+- A tool whose verdict the engine keeps whatever a hook answers: a subagent's report to its parent (`SubagentHandback`), which only the classifier may allow, and a question to you or a plan for your approval (`AskUserQuestion`, `ExitPlanMode`), which wait for you. The judge is not asked, since its allow would be rejected or ignored.
 
 ## Output it withholds
 
-The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including the full output a large result leaves in a file, a result another plugin's hook gave in the tool's place, and notes a hook adds beside the result, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin withholds it, and the same call run again goes to the classifier. The call has already been made, so the agent is warned that running it again repeats its effects. A call that moves to the background has its hand-off checked in the same way, including the output returned before the move; a withheld hand-off warns that withholding did not stop the task, and gives its checked task ID to follow, or asks you to inspect `/tasks` when that ID cannot be read safely. The result is also withheld when the check itself fails or runs out of time.
+The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including the full output a large result leaves in a file, a result another plugin's hook gave in the tool's place, and notes a hook adds beside the result, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin withholds it, and the same call run again goes to the classifier. The call has already been made, so the agent is warned that running it again repeats its effects. A call that moves to the background has its hand-off scanned in the same way, including the output returned before the move; a withheld hand-off warns that withholding did not stop the task, and gives its scanned task ID to follow, or asks you to inspect `/tasks` when that ID cannot be read safely. The result is also withheld when the scan itself fails or runs out of time.
 
 ## Install
 
@@ -55,28 +55,28 @@ Claude Code does not update plugins from third-party marketplaces by default. In
 
 ## Reading the log
 
-The plugin logs one JSON line per event to `~/.claude/preallow/<session-id>.jsonl`, keyed by `tool_use_id` and carrying the Claude Code version in `engine`; past about 1 MB the log goes on in `<session-id>.1.jsonl`, `<session-id>.2.jsonl`, and so on:
+The plugin logs one JSON line per event to `~/.claude/preallow/<session-id>.jsonl`, keyed by `tool_use_id`, with its time in `at` and the Claude Code version in `engine`; a line that names the tool also names the subagent that made the call, if one did, in `agentId`; past about 1 MB the log goes on in `<session-id>.1.jsonl`, `<session-id>.2.jsonl`, and so on:
 
-- `held`: an `ask` left to its decider without asking the judge (see What it leaves to the classifier), with the field that named the decider in `heldBy` and its value, and why the core asked.
-- `check`: the tool, its input (up to 2,000 characters), why the core asked (`coreReason`), the verdict (`allow` or `pass`), the judge's reason, what it asked to check and what the checks found, how long it took, the `model` and `effort` settings it ran on, and in `usage` what each model call cost, one entry per call with the four token counts the API reports (`input_tokens` counts only the input neither read from nor written to the cache).
+- `owned`: an `ask` its decider owns, left to it without asking the judge (see What it leaves to the classifier), with the field that named the decider in `ownedBy` and its value, and why the core asked.
+- `judged`: a call the judge was asked about, or whose input was too long to ask it about: the tool, its input (up to 2,000 characters), why the core asked (`coreReason`), the verdict (`allow`, or `review` when the call went on to the classifier, whether the judge answered so or not), the reason (the judge's, or why it gave none), what it asked to check (`checks`, listed even when the checks could not run) and what they found (`facts`), how long it took, the `model` and `effort` settings it ran on, and in `usage` what each model call cost, one entry per call with the four token counts the API reports (`input_tokens` counts only the input neither read from nor written to the cache).
 - `reserved`: a call of a tool whose verdict the engine keeps, left to it without asking the judge, with why the core asked.
 - `background`: a call run in the background, left to the classifier without asking the judge, with why the core asked.
-- `refused`: the engine refused a call the plugin allowed because only the classifier may allow that tool, with the start of its message. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
-- `denied`: the classifier denied a call the judge passed, with the start of the classifier's reason. These are the calls the judge could have allowed; read the matching `check` line to see why it did not.
-- `withheld`: the plugin withheld the output of a call it allowed, and why (never the output).
+- `rejected`: the engine rejected the plugin's allow of a call because only the classifier may allow that tool, with the start of its message in `reason`. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
+- `denied`: auto mode denied a call the judge left to review, with the start of its reason in `reason`; auto mode can deny without a classifier verdict. The matching `judged` line says why the judge did not allow it.
+- `withheld`: the plugin withheld the output of a call it allowed, and why in `reason` (never the output).
 
-To find calls the judge should not have allowed, read the `check` lines whose verdict is `allow`. Tool inputs are logged as given, unscanned, so a credential in a command or a file edit lands in the log. The log stays on this machine until you delete the folder.
+To find calls the judge should not have allowed, read the `judged` lines whose verdict is `allow`. Tool inputs are logged as given, unscanned, so a credential in a command or a file edit lands in the log. The log stays on this machine until you delete the folder.
 
 ## Known gaps
 
 - The judge does not see every word of a long conversation. Past 24,000 characters it leaves out messages that set no limit, then those that only narrow what the agent may do, then those that rule something out, each time those sharing the fewest words with the call and then the oldest first; a prohibition worded without "don't", "never", "only", or the like counts as setting no limit. Past 64,000 characters the plugin keeps only your first message and the newest. Repeat a prohibition in a short message when it matters.
-- On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with the words chosen for each call, so its instructions may be written to the cache on every call without being read back; the `usage` in each `check` line shows whether they are.
+- On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with the words chosen for each call, so its instructions may be written to the cache on every call without being read back; the `usage` in each `judged` line shows whether they are.
 - A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
 - `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
-- The credential check knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, passes unchecked, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one. JSON escaping can also hide a quoted password's shape.
+- The credential scan knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, slips through, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one. JSON escaping can also hide a quoted password's shape.
 - Some text that is not a credential matches gitleaks' rules, such as any 40-character hex string, a git commit hash included, in an output that also holds the word `sourcegraph`; the output is withheld and the call runs again under the classifier.
-- For a call moved to the background while it runs, the plugin checks only the hand-off. Output delivered later, including task notifications, is outside that check; a later read is checked only if the plugin allows that call.
-- A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not check those events.
+- For a call moved to the background while it runs, the plugin scans only the hand-off. Output delivered later, including task notifications, is outside that scan; a later read is scanned only if the plugin allows that call.
+- A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not scan those events.
 - A call the plugin allowed runs again under the classifier after a withheld output only when its input is the same; a rerun with any input change is judged again.
 
 ## License

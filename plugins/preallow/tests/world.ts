@@ -25,9 +25,9 @@ export type World = {
   git: Record<string, { exitCode: number; stdout: string }>;
   // Whether the classifier lets a call the check asked about run.
   classifierAllows: boolean;
-  // Whether the engine refuses a hook's allow, as for a tool only the
+  // Whether the engine rejects a hook's allow, as for a tool only the
   // classifier may allow.
-  engineRefuses: boolean;
+  engineRejects: boolean;
   dropsPrompt: boolean;
   callFails: boolean;
   // The tool's output as the model reads it; undefined for a result a hook
@@ -59,7 +59,7 @@ export const REVIEW = JSON.stringify({
 });
 export const ENGINE_VERSION = '0.0.0-synthetic';
 export const LOG = '/home/u/.claude/preallow/s1.jsonl';
-export const REFUSAL =
+export const REJECTION =
   "Only the auto-mode classifier can allow mcp__srv__handoff: an allow of type 'hook' is not the classifier's verdict";
 export const DENIAL =
   "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Synthetic]. If you have other tasks that don't depend on this action, continue working on those.";
@@ -94,7 +94,7 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     files: new Map(),
     git: {},
     classifierAllows: false,
-    engineRefuses: false,
+    engineRejects: false,
     dropsPrompt: false,
     callFails: false,
     output: 'ok',
@@ -193,8 +193,8 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
       ...(agentId === undefined ? {} : { agentId }),
     } as never);
     if (decision === 'deny') return { deny: 'denied by a rule' } as never;
-    if (decision === 'allow' && w.engineRefuses)
-      return { isError: true, result: REFUSAL, text: REFUSAL } as never;
+    if (decision === 'allow' && w.engineRejects)
+      return { isError: true, result: REJECTION, text: REJECTION } as never;
     if (decision === 'ask' && !w.classifierAllows) {
       await $.classic.PermissionDenied({
         tool_name: tool,

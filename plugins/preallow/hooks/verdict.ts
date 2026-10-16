@@ -5,7 +5,7 @@ import { MAX_REQUESTS, type FactRequest } from './facts.ts';
 import { isRefName } from './git.ts';
 
 export type Reply =
-  | { verdict: 'allow' | 'pass'; reason: string }
+  | { verdict: 'allow' | 'review'; reason: string }
   | {
       verdict: 'check';
       reason: string;
@@ -48,10 +48,10 @@ const VERDICT_FIELD = /"verdict"\s*:\s*"([^"\\]*)"/g;
 // verdicts along the way has not settled on one.
 export function parseVerdict(text: string): Reply {
   const reply = lastValue(text);
-  if (reply === undefined) return { verdict: 'pass', reason: 'unparsed reply' };
+  if (reply === undefined) return { verdict: 'review', reason: 'unparsed reply' };
   const stated = new Set(Array.from(text.matchAll(VERDICT_FIELD), (match) => match[1]));
   if (stated.size > 1)
-    return { verdict: 'pass', reason: `conflicting verdicts: ${[...stated].join(', ')}` };
+    return { verdict: 'review', reason: `conflicting verdicts: ${[...stated].join(', ')}` };
   const { verdict, reason, check } = reply;
   const why = typeof reason === 'string' ? reason : `verdict ${String(verdict)}`;
   if (verdict === 'check') {
@@ -61,8 +61,8 @@ export function parseVerdict(text: string): Reply {
       requests.length > MAX_REQUESTS ||
       !requests.every((request): request is FactRequest => request !== undefined)
     )
-      return { verdict: 'pass', reason: `unusable check: ${why}` };
+      return { verdict: 'review', reason: `unusable check: ${why}` };
     return { verdict: 'check', reason: why, check: requests };
   }
-  return { verdict: verdict === 'allow' ? 'allow' : 'pass', reason: why };
+  return { verdict: verdict === 'allow' ? 'allow' : 'review', reason: why };
 }

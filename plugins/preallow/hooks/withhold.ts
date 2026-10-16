@@ -95,7 +95,7 @@ export function rerunWarning(output: unknown): string {
 
 // Why the output of a call the plugin allowed must be withheld, if it must:
 // what the model would read, including the full output a large result leaves
-// in a file, holds a credential-shaped value, or the output cannot be checked.
+// in a file, holds a credential-shaped value, or the output cannot be scanned.
 // The model reads the core's `text`, or a hook's own result, which carries
 // none, and any context beside it.
 export async function withholding(
@@ -113,7 +113,7 @@ export async function withholding(
     try {
       full += `\n${await $.fs.read(persistedOutputPath)}`;
     } catch {
-      return 'its full output could not be read to check it';
+      return 'its full output could not be read to scan it';
     }
   }
 

@@ -128,7 +128,7 @@ describe('output', () => {
     expect(result.deny).toMatch(/^preallow: it holds/);
     expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
     const lines = await w.logged(2);
-    expect([lines[1]!.event, lines[1]!.why]).toEqual([
+    expect([lines[1]!.event, lines[1]!.reason]).toEqual([
       'withheld',
       'it holds what looks like a credential (API key)',
     ]);
@@ -157,7 +157,7 @@ describe('output', () => {
     expect((await call('t2')).text).toContain(FAKE_TOKEN);
   });
 
-  test("output the model would read later, from a file, from a hook's own result, or beside it is checked or withheld", async ($, on) => {
+  test("output the model would read later, from a file, from a hook's own result, or beside it is scanned or withheld", async ($, on) => {
     const w = world($, on, {
       output: 'Output too large, saved to /out/t1.txt',
       record: { stdout: '', persistedOutputPath: '/out/t1.txt' },

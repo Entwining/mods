@@ -6,7 +6,7 @@
 // newest messages the judge reads those that set a limit, then those that
 // share the most words with the call.
 
-import type { UserWords } from './words.ts';
+import type { UserMessages } from './messages.ts';
 
 const VIEW_CHARS = 24_000;
 const MESSAGE_CHARS = 4000;
@@ -120,7 +120,7 @@ const omittedMessages = (count: number) => `[${count} messages left out]`;
 
 // The messages the judge reads for a call, oldest first, with a note where
 // messages are left out, within `VIEW_CHARS` together.
-export function selectWords({ turns, leftOut }: UserWords, call: string): string[] {
+export function selectMessages({ turns, leftOut }: UserMessages, call: string): string[] {
   if (turns.length === 0) return [];
   const relevant = relevance(call, turns);
   const views = turns.map((turn) => excerpt(turn, relevant));

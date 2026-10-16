@@ -24,15 +24,15 @@ describe('parseVerdict', () => {
       '{"verdict":"review"}',
       '{"verdict":["allow"]}',
     ])
-      expect(parseVerdict(reply).verdict).toBe('pass');
+      expect(parseVerdict(reply).verdict).toBe('review');
   });
 
-  test('a reply that states different verdicts passes, whichever comes last', () => {
+  test('a reply that states different verdicts goes to review, whichever comes last', () => {
     for (const reply of [
       'First {"verdict":"review"}, then on reflection {"reason":"r","verdict":"allow"}',
       '```json\n{"verdict":"check","check":[{"path":"/w/a"}]}\n```\n{"verdict": "allow"}',
     ])
-      expect(parseVerdict(reply).verdict).toBe('pass');
+      expect(parseVerdict(reply).verdict).toBe('review');
     expect(
       parseVerdict('Draft {"verdict":"allow"}, final {"reason":"r","verdict":"allow"}').verdict,
     ).toBe('allow');
@@ -61,6 +61,6 @@ describe('parseVerdict', () => {
       [{ repo: '/w', ref: '--all' }],
       ['/w/a'],
     ])
-      expect(parseVerdict(JSON.stringify({ verdict: 'check', check })).verdict).toBe('pass');
+      expect(parseVerdict(JSON.stringify({ verdict: 'check', check })).verdict).toBe('review');
   });
 });

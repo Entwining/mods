@@ -1,5 +1,5 @@
 // Writes `plugins/preallow/hooks/gitleaks.generated.ts`: the rules of a
-// gitleaks release that preallow's withholding check applies after its own
+// gitleaks release that preallow's withholding scan applies after its own
 // shapes, with each regex rewritten from Go's syntax to JavaScript's. It is a
 // module, not JSON, because a hooks module may import only code.
 

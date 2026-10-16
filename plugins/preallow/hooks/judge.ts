@@ -8,13 +8,13 @@ import type { EngineInterface, ModelEffort, ModelUsage } from 'claude-code';
 import { gatherFacts, type FactRequest } from './facts.ts';
 import { JUDGE_SYSTEM } from './policy.ts';
 import { parseVerdict, type Reply } from './verdict.ts';
-import { selectWords } from './select.ts';
-import { clip, userWords, type UserWords } from './words.ts';
+import { selectMessages } from './select.ts';
+import { clip, userMessages, type UserMessages } from './messages.ts';
 
 export type JudgeCase = {
   tool: string;
   input: unknown;
-  words: UserWords;
+  messages: UserMessages;
   // For a subagent's call, the brief its parent agent gave it.
   brief?: string;
   // The directory the call's loop runs in.
@@ -24,10 +24,10 @@ export type JudgeCase = {
 };
 
 export type Verdict = {
-  verdict: 'allow' | 'pass';
+  verdict: 'allow' | 'review';
   reason: string;
   // What the judge asked to check, and what it was told.
-  checked?: readonly FactRequest[];
+  checks?: readonly FactRequest[];
   facts?: unknown;
 };
 
@@ -47,7 +47,7 @@ const JUDGE_TIMEOUT_MS = 90_000;
 export function judgePrompt(call: JudgeCase): string {
   return JSON.stringify(
     {
-      user_messages: selectWords(call.words, `${call.tool} ${JSON.stringify(call.input)}`),
+      user_messages: selectMessages(call.messages, `${call.tool} ${JSON.stringify(call.input)}`),
       ...(call.brief === undefined ? {} : { subagent_brief: clip(call.brief, BRIEF_CHARS) }),
       cwd: call.cwd,
       tool: call.tool,
@@ -64,38 +64,38 @@ async function ask(complete: Complete, call: JudgeCase): Promise<Reply> {
   try {
     text = await complete(JUDGE_SYSTEM, judgePrompt(call));
   } catch (error) {
-    return { verdict: 'pass', reason: `no reply (${String(error)})` };
+    return { verdict: 'review', reason: `no reply (${String(error)})` };
   }
   return parseVerdict(text);
 }
 
 // One round of checks at most: the judge decides with the facts it asked
-// for, and passes when they cannot be read or still leave it unsure.
+// for, and answers review when they cannot be read or still leave it unsure.
 export async function judge(call: JudgeCase, complete: Complete, gather: Gather): Promise<Verdict> {
   const inputChars = (JSON.stringify(call.input) ?? '').length;
   if (inputChars > INPUT_CHARS)
-    return { verdict: 'pass', reason: `input of ${inputChars} characters, too long to judge` };
+    return { verdict: 'review', reason: `input of ${inputChars} characters, too long to judge` };
 
   const first = await ask(complete, call);
   if (first.verdict !== 'check') return first;
 
-  const checked = first.check;
+  const checks = first.check;
   let facts: unknown;
   try {
-    facts = await gather(checked);
+    facts = await gather(checks);
   } catch (error) {
     return {
-      verdict: 'pass',
+      verdict: 'review',
       reason: `facts unavailable (${String(error)}): ${first.reason}`,
-      checked,
+      checks,
     };
   }
 
   const second = await ask(complete, { ...call, facts });
   return {
-    verdict: second.verdict === 'allow' ? 'allow' : 'pass',
+    verdict: second.verdict === 'allow' ? 'allow' : 'review',
     reason: second.verdict === 'check' ? `still unsure: ${second.reason}` : second.reason,
-    checked,
+    checks,
     facts,
   };
 }
@@ -126,7 +126,7 @@ export async function judgeCall(
     {
       tool,
       input,
-      words: await userWords($),
+      messages: await userMessages($),
       brief: await briefOf($, agentId),
       cwd,
     },

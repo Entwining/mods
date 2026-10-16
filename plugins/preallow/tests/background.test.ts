@@ -59,7 +59,7 @@ describe('background handoff', () => {
         command: 'run stage',
         tool_use_id: 't1',
       } as never);
-      expect(result.deny).toMatch(/^The call was made, .* checking it failed/);
+      expect(result.deny).toMatch(/^The call was made, .* scanning it failed/);
       expect(result.deny).toContain(
         background
           ? 'Check task "b1" before starting another run'
@@ -68,7 +68,7 @@ describe('background handoff', () => {
       expect(w.ran).toBe(1);
       expect((await w.logged(2))[1]).toMatchObject({
         event: 'withheld',
-        why: 'checking it failed',
+        reason: 'scanning it failed',
       });
       expect((await check($, 'Bash', bash('run stage'))).decision).toBe('ask');
     });

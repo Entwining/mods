@@ -6,10 +6,10 @@ import type { EngineInterface } from 'claude-code';
 // keeps them: the first, which often sets the task, then the newest that fit,
 // each clipped to its head and tail; `leftOut` counts the messages between.
 // `addTurn` keeps a conversation in this form, so it stays bounded, and
-// `selectWords` chooses from it what the judge reads for each call.
-export type UserWords = { turns: readonly string[]; leftOut: number };
+// `selectMessages` chooses from it what the judge reads for each call.
+export type UserMessages = { turns: readonly string[]; leftOut: number };
 
-export const NO_WORDS: UserWords = { turns: [], leftOut: 0 };
+export const NO_MESSAGES: UserMessages = { turns: [], leftOut: 0 };
 
 // Marks the user's answer to the agent's question among their words;
 // `JUDGE_SYSTEM` names it to say how a chosen option authorizes.
@@ -44,8 +44,8 @@ function clipTurn(text: string): string {
   return turn;
 }
 
-export function addTurn(words: UserWords, text: string): UserWords {
-  const [first, ...rest] = [...words.turns, clipTurn(text)];
+export function addTurn(conversation: UserMessages, text: string): UserMessages {
+  const [first, ...rest] = [...conversation.turns, clipTurn(text)];
   let room = TURNS_CHARS - size(first!);
 
   // Each kept turn also costs the comma that separates it, so many short
@@ -57,7 +57,10 @@ export function addTurn(words: UserWords, text: string): UserWords {
     room -= size(turn) + 1;
   }
 
-  return { turns: [first!, ...newest], leftOut: words.leftOut + rest.length - newest.length };
+  return {
+    turns: [first!, ...newest],
+    leftOut: conversation.leftOut + rest.length - newest.length,
+  };
 }
 
 // Each conversation's words are kept in the store under its session id: a
@@ -70,12 +73,12 @@ const KEPT_CONVERSATIONS = 50;
 
 // `at` orders the conversations: the store keeps keys in the order they were
 // first set, whatever was written since.
-type KeptWords = UserWords & { at: number };
+type KeptMessages = UserMessages & { at: number };
 
-export async function userWords($: EngineInterface): Promise<UserWords> {
+export async function userMessages($: EngineInterface): Promise<UserMessages> {
   return (
-    ((await $.store.get(`${TURNS_KEY}${await $.session.id()}`)) as KeptWords | undefined) ??
-    NO_WORDS
+    ((await $.store.get(`${TURNS_KEY}${await $.session.id()}`)) as KeptMessages | undefined) ??
+    NO_MESSAGES
   );
 }
 
@@ -86,7 +89,7 @@ async function otherConversations($: EngineInterface, key: string): Promise<stri
 // Least recently written first.
 async function byAge($: EngineInterface, keys: readonly string[]): Promise<string[]> {
   const at = new Map<string, number>();
-  for (const key of keys) at.set(key, ((await $.store.get(key)) as KeptWords).at);
+  for (const key of keys) at.set(key, ((await $.store.get(key)) as KeptMessages).at);
   return keys.toSorted((a, b) => at.get(a)! - at.get(b)!);
 }
 
@@ -102,7 +105,7 @@ export function remember($: EngineInterface, text: string): Promise<void> {
     .catch(() => {})
     .then(async () => {
       const key = `${TURNS_KEY}${await $.session.id()}`;
-      const kept: KeptWords = { ...addTurn(await userWords($), text), at: Date.now() };
+      const kept: KeptMessages = { ...addTurn(await userMessages($), text), at: Date.now() };
 
       await $.store.set(key, kept);
 

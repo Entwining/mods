@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing';
 
 import { gatherFacts } from '../hooks/facts.ts';
 import { AFTER, BEFORE, host } from './host.ts';
-import { auto, bash, check, judged, say } from './session.ts';
+import { auto, bash, check, promptOf, say } from './session.ts';
 import { world } from './world.ts';
 
 describe('gatherFacts', () => {
@@ -133,13 +133,13 @@ describe('facts through the judge', () => {
     await say($, 'start over from main');
     expect((await check($, 'Bash', bash('git reset --hard origin/main'))).decision).toBe('allow');
     expect(w.modelCalls).toHaveLength(2);
-    expect(judged(w, 0).facts).toBeUndefined();
-    expect(judged(w, 1).facts!.answers).toMatchObject([
+    expect(promptOf(w, 0).facts).toBeUndefined();
+    expect(promptOf(w, 1).facts!.answers).toMatchObject([
       { path: '/w', exists: true, git: { uncommittedChanges: { count: 1, first: ['src/a.ts'] } } },
       { repo: '/w', ref: 'origin/topic', exists: false },
     ]);
     const [line] = await w.logged(1);
-    expect(line!.checked).toEqual([{ path: '/w' }, { repo: '/w', ref: 'origin/topic' }]);
-    expect(line!.facts).toEqual(judged(w, 1).facts);
+    expect(line!.checks).toEqual([{ path: '/w' }, { repo: '/w', ref: 'origin/topic' }]);
+    expect(line!.facts).toEqual(promptOf(w, 1).facts);
   });
 });

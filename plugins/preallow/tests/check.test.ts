@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing';
 import type { ToolCheckResult } from 'claude-code';
 
 import { JUDGE_SYSTEM } from '../hooks/policy.ts';
-import { auto, bash, check, judged, say } from './session.ts';
+import { auto, bash, check, promptOf, say } from './session.ts';
 import { ALLOW, REVIEW, usageOf, world } from './world.ts';
 
 describe('tool.check', () => {
@@ -24,7 +24,7 @@ describe('tool.check', () => {
     await auto($);
     expect((await check($, 'Agent', { prompt: 'do it' })).decision).toBe('allow');
     expect((await check($, 'mcp__srv__send', { to: 'x' })).decision).toBe('allow');
-    expect(w.modelCalls.map((_, i) => judged(w, i).tool)).toEqual(['Agent', 'mcp__srv__send']);
+    expect(w.modelCalls.map((_, i) => promptOf(w, i).tool)).toEqual(['Agent', 'mcp__srv__send']);
   });
 
   test('a core allow or deny is never touched', async ($, on) => {
@@ -55,12 +55,12 @@ describe('tool.check', () => {
     }
     expect(w.modelCalls).toHaveLength(0);
     const lines = await w.logged(5);
-    expect(lines.map((line) => [line.event, line.heldBy, line[line.heldBy as string]])).toEqual([
-      ['held', 'rule', 'Bash(make:*)'],
-      ['held', 'hook', 'PreToolUse'],
-      ['held', 'setting', 'permissions.blockReadsOutsideWorkingDirectories'],
-      ['held', 'decider', 'host'],
-      ['held', 'ceiling', 'ask'],
+    expect(lines.map((line) => [line.event, line.ownedBy, line[line.ownedBy as string]])).toEqual([
+      ['owned', 'rule', 'Bash(make:*)'],
+      ['owned', 'hook', 'PreToolUse'],
+      ['owned', 'setting', 'permissions.blockReadsOutsideWorkingDirectories'],
+      ['owned', 'decider', 'host'],
+      ['owned', 'ceiling', 'ask'],
     ]);
     expect(lines.every((line) => line.coreReason === 'synthetic core reason')).toBe(true);
   });
@@ -128,7 +128,7 @@ describe('tool.check', () => {
     expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
     const [line] = await w.logged(1);
     expect([line!.verdict, line!.reason, line!.usage]).toEqual([
-      'pass',
+      'review',
       expect.stringContaining('api-error invalid_request (400)'),
       [usageOf(1)],
     ]);

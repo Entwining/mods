@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.7 - 2026-10-16
+
+- Log lines use new names; files written before this version keep the old ones.
+- A call the judge was asked about, or whose input was too long to ask it about, is logged as `judged` instead of `check`, a word that also names the judge asking to look up files.
+- The verdict of a call that goes on to the classifier is `review` instead of `pass`, which read as an allow.
+- An `ask` left to its decider is logged as `owned`, naming the field in `ownedBy`, instead of `held` and `heldBy`, which looked like `withheld`.
+- The engine rejecting the plugin's allow is logged as `rejected` instead of `refused`, which reads as a model's refusal.
+- The `denied`, `rejected`, and `withheld` lines give their reason in `reason`, as `judged` lines do, instead of `denial`, `refusal`, and `why`. A `withheld` reason calls the credential scan a scan, as in `scanning it failed`, where it said `checking it failed`.
+- What the judge asked to check is logged in `checks` instead of `checked`, which read as done: the list is there also when the checks could not run.
+- The README no longer says a `denied` line means the classifier denied the call: auto mode can deny without a classifier verdict.
+
 ## 0.0.6 - 2026-10-16
 
 - The judge's instructions are marked for the prompt cache, so a call soon after another can read them from the cache instead of paying for them in full.

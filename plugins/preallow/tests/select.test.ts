@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing';
-import { selectWords } from '../hooks/select.ts';
-import { addTurn, NO_WORDS } from '../hooks/words.ts';
+import { selectMessages } from '../hooks/select.ts';
+import { addTurn, NO_MESSAGES } from '../hooks/messages.ts';
 
-const words = (...turns: string[]) => turns.reduce(addTurn, NO_WORDS);
+const messages = (...turns: string[]) => turns.reduce(addTurn, NO_MESSAGES);
 // Messages as long as the plain ones, so one can stand in only for another.
 // The first message and eight of them fill the view exactly, leaving no room
 // for a note of the messages left out.
@@ -11,7 +11,7 @@ const plain = (i: number) => long(`${i}`);
 const call = (tool: string, input: Record<string, unknown>) => `${tool} ${JSON.stringify(input)}`;
 const MAKE = call('Bash', { command: 'make' });
 
-describe('selectWords', () => {
+describe('selectMessages', () => {
   test('a long conversation keeps its first and newest messages, then those that set a limit, and stays within the view', () => {
     const turns = [
       'the task',
@@ -19,7 +19,7 @@ describe('selectWords', () => {
       long('先别动生产数据库'),
       ...Array.from({ length: 18 }, (_, i) => plain(i)),
     ];
-    const view = selectWords(words(...turns), MAKE);
+    const view = selectMessages(messages(...turns), MAKE);
     expect(view.slice(0, 4)).toEqual([...turns.slice(0, 3), '[13 messages left out]']);
     expect(view.slice(4)).toEqual(turns.slice(-5));
     expect(view.join('').length).toBeLessThanOrEqual(24_000);
@@ -42,7 +42,7 @@ describe('selectWords', () => {
       ...narrowing.map(long),
       'go',
     ];
-    expect(selectWords(words(...turns), MAKE)).toContain(turns[1]);
+    expect(selectMessages(messages(...turns), MAKE)).toContain(turns[1]);
   });
 
   test('a Chinese word that only holds a limit word, such as 区别, sets no limit', () => {
@@ -57,7 +57,7 @@ describe('selectWords', () => {
       '别人的分支先合进来',
     ];
     const turns = ['整理仓库', long('先别动生产数据库'), ...compounds.map(long), '继续'];
-    expect(selectWords(words(...turns), MAKE)).toContain(turns[1]);
+    expect(selectMessages(messages(...turns), MAKE)).toContain(turns[1]);
   });
 
   test('a message that names what the call touches is read before newer ones that do not', () => {
@@ -67,7 +67,7 @@ describe('selectWords', () => {
       ['the billing module is frozen', { command: 'rm src/billing.ts' }],
     ] as const) {
       const turns = ['the task', long(message), ...Array.from({ length: 20 }, (_, i) => plain(i))];
-      expect(selectWords(words(...turns), call('Bash', input))[1]).toBe(turns[1]);
+      expect(selectMessages(messages(...turns), call('Bash', input))[1]).toBe(turns[1]);
     }
   });
 
@@ -79,13 +79,13 @@ describe('selectWords', () => {
       old_string: 'the rate',
       new_string: 'the new rate',
     });
-    expect(selectWords(words(...turns), edit)).toContain(turns[1]);
+    expect(selectMessages(messages(...turns), edit)).toContain(turns[1]);
   });
 
   test('messages the store let go are counted with those the view leaves out', () => {
-    const conversation = words('the task', ...Array.from({ length: 30 }, (_, i) => plain(i)));
+    const conversation = messages('the task', ...Array.from({ length: 30 }, (_, i) => plain(i)));
     expect(conversation.leftOut).toBe(9);
-    expect(selectWords(conversation, MAKE)[1]).toBe('[23 messages left out]');
+    expect(selectMessages(conversation, MAKE)[1]).toBe('[23 messages left out]');
   });
 
   test('a long message keeps its head, its tail, and what between sets a limit or names what the call touches, within its share', () => {
@@ -97,7 +97,10 @@ describe('selectWords', () => {
       [`HEAD ${filler}The seeds in db/migrations are hand-written. ${filler}TAIL`, 'db/migrations'],
       [`HEAD ${filler}Never publish ${'the build '.repeat(250)}${filler}TAIL`, 'Never publish'],
     ] as const) {
-      const [view] = selectWords(words(message), call('Bash', { command: 'rm -rf db/migrations' }));
+      const [view] = selectMessages(
+        messages(message),
+        call('Bash', { command: 'rm -rf db/migrations' }),
+      );
       expect(view).toMatch(/^HEAD/);
       expect(view).toMatch(/TAIL$/);
       expect(view).toContain(kept);
