@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5 - 2026-10-16
+
+- A call moved to the background keeps its hand-off when its initial output passes the credential check, so the agent can follow the running task. A withheld hand-off or failed check preserves a checked task ID when available and warns against starting another run before checking the existing task.
+- Installation instructions cover the shell command, interactive scope selection, and manual or automatic plugin updates.
+
 ## 0.0.4 - 2026-10-15
 
 - The credential check also knows the gitleaks rules that find a provider's token by the provider's name beside it, such as Okta and Cohere tokens.

@@ -8,11 +8,13 @@ Claude Code plugins built on function hooks, published as the `entwining-mods` m
 
 ## Install
 
-```
-/plugin install preallow --marketplace Entwining/mods
+```sh
+claude plugin install preallow --marketplace Entwining/mods
 ```
 
-Answer `y` to add the marketplace, then pick a scope. Each mod's README covers its options.
+This installs for your user. To pick a scope interactively, run `/plugin install preallow --marketplace Entwining/mods` in a Claude Code session. Each mod's README covers its options.
+
+Claude Code does not update plugins from third-party marketplaces by default. In `/plugin`, select `entwining-mods` on the Marketplaces tab and choose **Enable auto-update**, or run `claude plugin update preallow@entwining-mods` manually. Start a new session after installing or updating.
 
 ## Development
 

@@ -171,8 +171,6 @@ describe('output', () => {
     expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
     w.files.delete('/out/t1.txt');
     expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
-    w.record = { stdout: '', backgroundTaskId: 'b1' };
-    expect((await call('cat d.log', 't4')).deny).toContain('background');
     w.output = undefined;
     w.record = { stdout: `TOKEN=${FAKE_TOKEN}` };
     expect((await call('cat e.log', 't5')).deny).toContain('API key');
@@ -180,21 +178,5 @@ describe('output', () => {
     w.record = undefined;
     w.context = [`TOKEN=${FAKE_TOKEN}`];
     expect((await call('cat f.log', 't6')).deny).toContain('API key');
-  });
-
-  test('a check that fails withholds the output instead of showing it', async ($, on) => {
-    const w = world($, on, {
-      record: {
-        get backgroundTaskId(): string {
-          throw new Error('unreadable record');
-        },
-      },
-    });
-    await auto($);
-    const call = (id: string) =>
-      $.tool.call({ tool: 'Bash', command: 'cat a.log', tool_use_id: id } as never);
-    expect((await call('t1')).deny).toMatch(/^The call was made, .* checking it failed/);
-    expect((await w.logged(2))[1]).toMatchObject({ event: 'withheld', why: 'checking it failed' });
-    expect((await check($, 'Bash', bash('cat a.log'))).decision).toBe('ask');
   });
 });

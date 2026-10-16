@@ -41,13 +41,17 @@ Set them in `/config` or when you install. The plugin passes what you write to t
 
 ## Output it withholds
 
-The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including the full output a large result leaves in a file, a result another plugin's hook gave in the tool's place, and notes a hook adds beside the result, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin withholds it, and the same call run again goes to the classifier. The call has already been made, so the agent is told that running it again repeats its effects. It also withholds the result when the check itself fails or runs out of time, and the result of a call that moves to the background, since it cannot check that output.
+The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including the full output a large result leaves in a file, a result another plugin's hook gave in the tool's place, and notes a hook adds beside the result, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin withholds it, and the same call run again goes to the classifier. The call has already been made, so the agent is warned that running it again repeats its effects. A call that moves to the background has its hand-off checked in the same way, including the output returned before the move; a withheld hand-off warns that withholding did not stop the task, and gives its checked task ID to follow, or asks you to inspect `/tasks` when that ID cannot be read safely. The result is also withheld when the check itself fails or runs out of time.
 
 ## Install
 
+```sh
+claude plugin install preallow --marketplace Entwining/mods
 ```
-/plugin install preallow --marketplace Entwining/mods
-```
+
+This installs for your user. To pick a scope interactively, run `/plugin install preallow --marketplace Entwining/mods` in a Claude Code session.
+
+Claude Code does not update plugins from third-party marketplaces by default. In `/plugin`, select `entwining-mods` on the Marketplaces tab and choose **Enable auto-update**, or run `claude plugin update preallow@entwining-mods` manually. Start a new session after installing or updating.
 
 ## Reading the log
 
@@ -68,9 +72,9 @@ To find calls the judge should not have allowed, read the `check` lines whose ve
 - The judge does not see every word of a long conversation. Past 24,000 characters it leaves out messages that set no limit, then those that only narrow what the agent may do, then those that rule something out, each time those sharing the fewest words with the call and then the oldest first; a prohibition worded without "don't", "never", "only", or the like counts as setting no limit. Past 64,000 characters the plugin keeps only your first message and the newest. Repeat a prohibition in a short message when it matters.
 - A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
 - `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
-- The credential check knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, passes unchecked, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one.
+- The credential check knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, passes unchecked, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one. JSON escaping can also hide a quoted password's shape.
 - Some text that is not a credential matches gitleaks' rules, such as any 40-character hex string, a git commit hash included, in an output that also holds the word `sourcegraph`; the output is withheld and the call runs again under the classifier.
-- For a call moved to the background while it runs, the plugin withholds the result but cannot check what the task reports when it finishes.
+- For a call moved to the background while it runs, the plugin checks only the hand-off. Output delivered later, including task notifications, is outside that check; a later read is checked only if the plugin allows that call.
 - A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not check those events.
 - A call the plugin allowed runs again under the classifier after a withheld output only when its input is the same; a rerun with any input change is judged again.
 
