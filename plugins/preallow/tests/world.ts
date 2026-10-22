@@ -1,7 +1,6 @@
 // The world beneath the plugin, shared by the tests that drive its hooks.
 
 import { mock } from 'claude-code/testing';
-import type { Engine } from 'claude-code/testing';
 import type { ModelTextBlock, On, ToolCheckResult } from 'claude-code';
 
 export type World = {
@@ -23,8 +22,8 @@ export type World = {
   // Answers to `$.process.run`, by the arguments after git's fixed options;
   // anything else exits 0 with no output.
   git: Record<string, { exitCode: number; stdout: string }>;
-  // Whether the classifier lets a call the check asked about run.
-  classifierAllows: boolean;
+  // Whether the synthetic permission decider lets an ask run.
+  asksAllowed: boolean;
   // Whether the engine rejects a hook's allow, as for a tool only the
   // classifier may allow.
   engineRejects: boolean;
@@ -61,8 +60,6 @@ export const ENGINE_VERSION = '0.0.0-synthetic';
 export const LOG = '/home/u/.claude/preallow/s1.jsonl';
 export const REJECTION =
   "Only the auto-mode classifier can allow mcp__srv__handoff: an allow of type 'hook' is not the classifier's verdict";
-export const DENIAL =
-  "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Synthetic]. If you have other tasks that don't depend on this action, continue working on those.";
 
 // What the judge model's nth call costs, distinct for each call.
 export const usageOf = (n: number) => ({
@@ -72,12 +69,9 @@ export const usageOf = (n: number) => ({
   cache_creation_input_tokens: 1000 * n,
 });
 
-// Everything beneath the plugin: the engine's own decision, the judge model,
-// subagent transcripts, and an in-memory log folder. A tool call asks for its
-// permission under its own id, as a session does beneath every plugin's
-// `tool.call` hook; an ask the classifier denies raises `PermissionDenied`
-// and comes back as the error text the core reports, with no `deny` field.
-export function world($: Engine, on: On, partial: Partial<World> = {}): World {
+// The engine's core decision, model client, tool results and local storage.
+// The testing engine owns the permission check before a mocked tool runs.
+export function world(on: On, partial: Partial<World> = {}): World {
   const waiters: Array<[number, string, (lines: Array<Record<string, unknown>>) => void]> = [];
   const lines = (path: string) =>
     (w.files.get(path) ?? '')
@@ -93,7 +87,7 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
     agents: {},
     files: new Map(),
     git: {},
-    classifierAllows: false,
+    asksAllowed: false,
     engineRejects: false,
     dropsPrompt: false,
     callFails: false,
@@ -117,6 +111,11 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
   on('classic.UserPromptSubmit', async () => ({}));
   on('classic.SubagentStart', async () => ({}));
   on('classic.PermissionDenied', async () => ({}));
+  on('classic.PermissionRequest', async () => ({
+    decision: w.asksAllowed
+      ? { behavior: 'allow' }
+      : { behavior: 'deny', message: 'Synthetic permission denial' },
+  }));
   on('tool.check', async () => w.core);
   on('session.id', async () => ({ value: w.sessionId }));
   on('store.get', async (_$, e) => ({ value: w.store.get(e.key) }) as never);
@@ -180,30 +179,8 @@ export function world($: Engine, on: On, partial: Partial<World> = {}): World {
   on('prompt.submit', async (_$, e) =>
     w.dropsPrompt ? { drop: 'blocked beneath' } : { text: e.text },
   );
-  on('tool.call', async (_$, e) => {
-    const { tool, tool_use_id, agentId, ...input } = e as {
-      tool: string;
-      tool_use_id: string;
-      agentId?: string;
-    };
-    const { decision } = await $.tool.check({
-      tool,
-      input,
-      tool_use_id,
-      ...(agentId === undefined ? {} : { agentId }),
-    } as never);
-    if (decision === 'deny') return { deny: 'denied by a rule' } as never;
-    if (decision === 'allow' && w.engineRejects)
-      return { isError: true, result: REJECTION, text: REJECTION } as never;
-    if (decision === 'ask' && !w.classifierAllows) {
-      await $.classic.PermissionDenied({
-        tool_name: tool,
-        tool_input: input,
-        tool_use_id,
-        reason: '[Synthetic]',
-      } as never);
-      return { isError: true, result: `Error: ${DENIAL}`, text: DENIAL } as never;
-    }
+  on('tool.call', async () => {
+    if (w.engineRejects) return { isError: true, result: REJECTION, text: REJECTION } as never;
     w.ran++;
     if (w.callFails) return { isError: true, result: w.output, text: w.output } as never;
     return { result: w.record ?? w.output, text: w.output, context: w.context } as never;

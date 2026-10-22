@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'claude-code/testing';
 
 import { auto, bash, check } from './session.ts';
-import { DENIAL, ENGINE_VERSION, LOG, REJECTION, REVIEW, usageOf, world } from './world.ts';
+import { ENGINE_VERSION, LOG, REJECTION, REVIEW, usageOf, world } from './world.ts';
 
 const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
 
 describe('the log', () => {
   test('each decision is logged with its verdict and why the core asked', async ($, on) => {
-    const w = world($, on, { core: { decision: 'ask', reason: 'synthetic core reason' } });
+    const w = world(on, { core: { decision: 'ask', reason: 'synthetic core reason' } });
     await auto($);
     await check($, 'Bash', bash('make setup'));
     const [line] = await w.logged(1);
@@ -29,7 +29,7 @@ describe('the log', () => {
   });
 
   test('a judged line carries what each judge call cost and the settings it ran on', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       replies: [JSON.stringify({ reason: 'r', verdict: 'check', check: [{ path: '/w' }] })],
     });
     await auto($);
@@ -44,10 +44,18 @@ describe('the log', () => {
   });
 
   test('a call the judge left to review and auto mode denied is logged', async ($, on) => {
-    const w = world($, on, { reply: REVIEW });
+    const w = world(on, { reply: REVIEW });
     await auto($);
-    const result = await $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: 't1' } as never);
-    expect(result.text).toBe(DENIAL);
+    const denied = async (id: string, input: Record<string, unknown> = bash('make')) => {
+      await check($, 'Bash', input, { tool_use_id: id });
+      await $.classic.PermissionDenied({
+        tool_name: 'Bash',
+        tool_input: input,
+        tool_use_id: id,
+        reason: '[Synthetic]',
+      });
+    };
+    await denied('t1');
     expect(w.modelCalls).toHaveLength(1);
     const lines = await w.logged(2);
     expect(lines.map((line) => [line.event, line.tool_use_id, line.verdict])).toEqual([
@@ -57,13 +65,8 @@ describe('the log', () => {
     expect(lines[1]!.reason).toContain('[Synthetic]');
 
     // Denied without the judge, then a later call judged and denied.
-    await $.tool.call({
-      tool: 'Bash',
-      command: 'make',
-      run_in_background: true,
-      tool_use_id: 't2',
-    } as never);
-    await $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: 't3' } as never);
+    await denied('t2', { command: 'make', run_in_background: true });
+    await denied('t3');
     const later = await w.logged(5);
     expect(later.slice(2).map((line) => [line.event, line.tool_use_id])).toEqual([
       ['background', 't2'],
@@ -73,7 +76,7 @@ describe('the log', () => {
   });
 
   test('an allow the engine rejects is logged, and the call run again goes to the core', async ($, on) => {
-    const w = world($, on, { engineRejects: true });
+    const w = world(on, { engineRejects: true });
     await auto($);
     const result = await $.tool.call({ tool: 'mcp__srv__handoff', tool_use_id: 't1' } as never);
     expect(result.text).toBe(REJECTION);
@@ -88,7 +91,7 @@ describe('the log', () => {
   });
 
   test("a call the plugin allowed that printed what the engine's rejection says is not logged as rejected", async ($, on) => {
-    const w = world($, on, { output: REJECTION });
+    const w = world(on, { output: REJECTION });
     await auto($);
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'make', tool_use_id: id } as never);
@@ -100,7 +103,7 @@ describe('the log', () => {
   });
 
   test('decisions made at once are all logged', async ($, on) => {
-    const w = world($, on);
+    const w = world(on);
     await auto($);
     await Promise.all([
       check($, 'Bash', bash('make a')),
@@ -111,7 +114,7 @@ describe('the log', () => {
   });
 
   test('without HOME nothing is logged', async ($, on) => {
-    const w = world($, on, { env: {} });
+    const w = world(on, { env: {} });
     await auto($);
     await check($, 'Bash', bash('make'));
     await check($, 'Bash', bash('make b'), { tool_use_id: 't2' });
@@ -119,7 +122,7 @@ describe('the log', () => {
   });
 
   test('a log write that fails leaves later lines to be written', async ($, on) => {
-    const w = world($, on, { failWrites: 1 });
+    const w = world(on, { failWrites: 1 });
     await auto($);
     await check($, 'Bash', bash('make a'));
     await check($, 'Bash', bash('make b'), { tool_use_id: 't2' });
@@ -129,7 +132,7 @@ describe('the log', () => {
 
   test('a full log part rolls over to the next, and a long input is cut', async ($, on) => {
     const full = `${JSON.stringify({ event: 'judged', input: 'x'.repeat(1000) })}\n`.repeat(1000);
-    const w = world($, on, { files: new Map([[LOG, full]]) });
+    const w = world(on, { files: new Map([[LOG, full]]) });
     await auto($);
     await check($, 'Bash', bash('x'.repeat(5000)));
     const [line] = await w.logged(1, LOG_PART_1);

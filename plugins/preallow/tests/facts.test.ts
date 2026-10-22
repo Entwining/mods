@@ -117,7 +117,7 @@ describe('facts through the judge', () => {
   });
 
   test('the judge decides again with what the checks found', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       replies: [CHECK],
       git: {
         'rev-parse --show-toplevel': { exitCode: 0, stdout: '/w\n' },

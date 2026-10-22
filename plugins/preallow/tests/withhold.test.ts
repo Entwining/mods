@@ -116,7 +116,7 @@ describe('findSecret', () => {
 
 describe('output', () => {
   test('a call the plugin allowed has its output withheld when it holds a credential, and runs again under the classifier', async ($, on) => {
-    const w = world($, on, { output: `TOKEN=${FAKE_TOKEN}` });
+    const w = world(on, { output: `TOKEN=${FAKE_TOKEN}` });
     await auto($);
     const result = await $.tool.call({
       tool: 'Bash',
@@ -147,7 +147,7 @@ describe('output', () => {
   });
 
   test('output is passed on when it holds no credential, or the plugin did not allow the call', async ($, on) => {
-    const w = world($, on, { output: 'version 1.2.3' });
+    const w = world(on, { output: 'version 1.2.3' });
     await auto($);
     const call = (id: string) =>
       $.tool.call({ tool: 'Bash', command: 'cat config.json', tool_use_id: id } as never);
@@ -158,7 +158,7 @@ describe('output', () => {
   });
 
   test("output the model would read later, from a file, from a hook's own result, or beside it is scanned or withheld", async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       output: 'Output too large, saved to /out/t1.txt',
       record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
     });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.8 - 2026-10-22
+
+- Follow Claude Code's current approval API: leave hosted approvals and asks made by another plugin to their owner. Requires Claude Code 2.1.308 or later.
+- Shell and command-monitor calls that request per-command network access stay with Claude Code's classifier, whose approval registers the domain grants. A hook allow approves the command without granting those hosts.
+
 ## 0.0.7 - 2026-10-16
 
 - Log lines use new names; files written before this version keep the old ones.

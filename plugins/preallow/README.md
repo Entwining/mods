@@ -1,6 +1,6 @@
 # preallow
 
-A Claude Code plugin for auto mode. When the core permission check would hand a tool call to the auto-mode classifier, preallow asks a model judge first, and runs the call without the classifier when the judge allows it.
+A Claude Code plugin for auto mode, requiring Claude Code 2.1.308 or later. When the core permission check would hand a tool call to the auto-mode classifier, preallow asks a model judge first, and runs the call without the classifier when the judge allows it.
 
 The judge applies one policy to every tool, Bash, file edits, subagents, messages, and MCP tools alike: giving the agent a task authorizes the steps it takes toward that task, whether or not you named them. It sends a call on to the classifier only when:
 
@@ -11,7 +11,7 @@ The judge applies one policy to every tool, Bash, file edits, subagents, message
 - **the call does what you told the agent not to do** in this conversation, unless a later message of yours lifts that, even when the step is reversible. A prohibition covers what it names: asking for a value without showing it to you keeps it out of the agent's reply, not out of a tool result the task needs.
 - **the judge cannot tell** whether the effect can be undone, or whether your task covers it.
 
-Everything else is allowed, including commands outside the sandbox, loosening permission or sandbox settings as a step of the task, and retries. The plugin only loosens: it never changes an `allow` or a `deny`, and disabling it restores the classifier for every call.
+Everything else is allowed, including commands outside the sandbox, loosening permission or sandbox settings as a step of the task, and retries. The plugin only loosens: it never changes an `allow` or a `deny`, and disabling it restores Claude Code's native approval flow.
 
 When whether a call can be undone turns on the state of files or git refs, the judge first asks to check them, naming up to four paths or refs. The plugin answers from a fixed set of read-only queries: for a path, whether it exists, how many of its files changed before the session started, and, inside a git work tree, how many files are tracked and the uncommitted, untracked, and ignored files under it; for a ref, its commit, how many commits no other ref holds, which refs contain it, and when the remote was last fetched. The git commands run without optional locks, an fsmonitor, or any transport, five seconds each. The judge then decides once more with what they found; when a check cannot run or the judge is still unsure, the call goes to the classifier.
 
@@ -29,13 +29,14 @@ The judge runs through your session's own model client, one call per tool call i
 - `model`: the model the judge runs on, an alias or a full model id. Default `opus`.
 - `effort`: how hard the judge thinks. Default `medium`.
 
-Set them in `/config` or when you install. The plugin passes what you write to the model client unchanged; a value the client refuses sends every call to the classifier, and each `judged` line in the log says why. The judge's policy was evaluated on `opus` at `medium` and `high`; at `low` it sent more of the calls it should allow to the classifier, and other models were not evaluated.
+Set them in `/config` or when you install. The plugin passes what you write to the model client unchanged; if the client refuses a value, calls that reach the judge go on to the classifier, and each `judged` line in the log says why. The judge's policy was evaluated on `opus` at `medium` and `high`; at `low` it sent more of the calls it should allow to the classifier, and other models were not evaluated.
 
-## What it leaves to the classifier
+## What it leaves to native approval
 
 - Any mode other than `auto`, and a subagent's calls until the subagent's mode has been reported.
-- An `ask` from a settings rule, from a hook in your settings, from a setting's own check (the read block, `permissions.blockReadsOutsideWorkingDirectories`, which asks you rather than the classifier), from an organization's ceiling for the tool, or one put to a host that answers the session's asks. An `ask` from another plugin's hook reaches preallow looking like the core's own, so the judge may turn it into an allow: do not pair preallow with a plugin whose asks must stand.
+- An `ask` from a settings rule, from a hook in your settings or another plugin, from a setting's own check (the read block, `permissions.blockReadsOutsideWorkingDirectories`, which asks you rather than the classifier), from an organization's ceiling for the tool, or one put to a host that answers the session's asks.
 - A call run in the background (`run_in_background`), such as a dev server or a watcher: its output reaches the model after the call returns, where the plugin cannot scan it.
+- A Bash, PowerShell, or command-monitor call with a non-empty `allowed_domains` list: the classifier reviews the command and registers approved network grants; a hook allow approves the command without granting the hosts.
 - A call whose output the plugin withheld, or whose allow the engine rejected, when it runs again.
 - A tool whose verdict the engine keeps whatever a hook answers: a subagent's report to its parent (`SubagentHandback`), which only the classifier may allow, and a question to you or a plan for your approval (`AskUserQuestion`, `ExitPlanMode`), which wait for you. The judge is not asked, since its allow would be rejected or ignored.
 
@@ -57,10 +58,11 @@ Claude Code does not update plugins from third-party marketplaces by default. In
 
 The plugin logs one JSON line per event to `~/.claude/preallow/<session-id>.jsonl`, keyed by `tool_use_id`, with its time in `at` and the Claude Code version in `engine`; a line that names the tool also names the subagent that made the call, if one did, in `agentId`; past about 1 MB the log goes on in `<session-id>.1.jsonl`, `<session-id>.2.jsonl`, and so on:
 
-- `owned`: an `ask` its decider owns, left to it without asking the judge (see What it leaves to the classifier), with the field that named the decider in `ownedBy` and its value, and why the core asked.
+- `owned`: an `ask` its decider owns, left to it without asking the judge (see What it leaves to native approval), with the field that named the decider in `ownedBy` and its value, and why the core asked.
 - `judged`: a call the judge was asked about, or whose input was too long to ask it about: the tool, its input (up to 2,000 characters), why the core asked (`coreReason`), the verdict (`allow`, or `review` when the call went on to the classifier, whether the judge answered so or not), the reason (the judge's, or why it gave none), what it asked to check (`checks`, listed even when the checks could not run) and what they found (`facts`), how long it took, the `model` and `effort` settings it ran on, and in `usage` what each model call cost, one entry per call with the four token counts the API reports (`input_tokens` counts only the input neither read from nor written to the cache).
 - `reserved`: a call of a tool whose verdict the engine keeps, left to it without asking the judge, with why the core asked.
 - `background`: a call run in the background, left to the classifier without asking the judge, with why the core asked.
+- `network`: a sandbox command requesting per-command domain grants, left to the classifier without asking the judge, with why the core asked.
 - `rejected`: the engine rejected the plugin's allow of a call because only the classifier may allow that tool, with the start of its message in `reason`. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
 - `denied`: auto mode denied a call the judge left to review, with the start of its reason in `reason`; auto mode can deny without a classifier verdict. The matching `judged` line says why the judge did not allow it.
 - `withheld`: the plugin withheld the output of a call it allowed, and why in `reason` (never the output).
@@ -69,7 +71,7 @@ To find calls the judge should not have allowed, read the `judged` lines whose v
 
 ## Known gaps
 
-- The judge does not see every word of a long conversation. Past 24,000 characters it leaves out messages that set no limit, then those that only narrow what the agent may do, then those that rule something out, each time those sharing the fewest words with the call and then the oldest first; a prohibition worded without "don't", "never", "only", or the like counts as setting no limit. Past 64,000 characters the plugin keeps only your first message and the newest. Repeat a prohibition in a short message when it matters.
+- Long conversations can lose prohibitions through the message-selection and storage limits described in [What the judge reads](#what-the-judge-reads). Selection detects limits by wording, so a differently phrased prohibition can also be missed. Repeat an important prohibition in a short message when it matters.
 - On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with the words chosen for each call, so its instructions may be written to the cache on every call without being read back; the `usage` in each `judged` line shows whether they are.
 - A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
 - `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.

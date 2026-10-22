@@ -28,8 +28,8 @@ describe("answers to the agent's question", () => {
     };
     // A hook beneath reworded what the person saw.
     const shown = [{ ...questions[0]!, question: 'Which build directories should go?' }];
-    const w = world($, on, {
-      classifierAllows: true,
+    const w = world(on, {
+      asksAllowed: true,
       record: { questions: shown, ...answered },
     });
     await auto($);
@@ -46,8 +46,8 @@ describe("answers to the agent's question", () => {
   });
 
   test('another tool, a dialog resolved while the person was away, or one that failed holds no answer', async ($, on) => {
-    const w = world($, on, {
-      classifierAllows: true,
+    const w = world(on, {
+      asksAllowed: true,
       record: { questions, answers: { [QUESTION]: 'notes' } },
     });
     await auto($);

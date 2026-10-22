@@ -8,7 +8,7 @@ const FAKE_TOKEN = `sk-${'q7Rk2Vx9'.repeat(4)}`;
 
 describe('background handoff', () => {
   test('a clean handoff keeps its task id, output path, and initial output', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       output: HANDOFF,
       record: { stdout: 'ready', stderr: '', interrupted: false, backgroundTaskId: 'b1' },
     });
@@ -26,7 +26,7 @@ describe('background handoff', () => {
   });
 
   test('a credential in the initial handoff is withheld without inviting another run', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       output: `${HANDOFF}\n${FAKE_TOKEN}`,
       record: { stdout: 'ready', stderr: '', interrupted: false, backgroundTaskId: 'b1' },
     });
@@ -48,7 +48,7 @@ describe('background handoff', () => {
 
   for (const background of [false, true]) {
     test(`a failed scan recovers the settled ${background ? 'background' : 'foreground'} result without repeating the call`, async ($, on) => {
-      const w = world($, on, {
+      const w = world(on, {
         output: undefined,
         // BigInt crosses the tool boundary, then fails the scan's JSON serialization.
         record: { value: 1n, ...(background ? { backgroundTaskId: 'b1' } : {}) },
@@ -75,7 +75,7 @@ describe('background handoff', () => {
   }
 
   test('a task id that holds a credential is not echoed in the recovery message', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       output: FAKE_TOKEN,
       record: { backgroundTaskId: FAKE_TOKEN },
     });

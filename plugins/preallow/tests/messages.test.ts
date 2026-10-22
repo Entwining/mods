@@ -9,7 +9,7 @@ const kept = (at: number, ...turns: string[]) => ({ turns, leftOut: 0, at });
 
 describe('what the judge reads', () => {
   test('only what the user typed counts as their words', async ($, on) => {
-    const w = world($, on);
+    const w = world(on);
     await auto($);
     await say($, 'fix the tests');
     await say($, 'and push when green', 'bridge');
@@ -28,7 +28,7 @@ describe('what the judge reads', () => {
   });
 
   test('a subagent call carries the brief its parent gave it', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       agents: {
         a1: [
           { role: 'user', text: 'brief: run the migration on the scratch database' },
@@ -49,7 +49,7 @@ describe('what the judge reads', () => {
   });
 
   test('a conversation keeps the words given before its process ended', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       store: new Map([['turns:s1', kept(0, 'when I say go, delete the old branch')]]),
     });
     await auto($);
@@ -59,7 +59,7 @@ describe('what the judge reads', () => {
   });
 
   test('a cleared or other conversation starts without the earlier words', async ($, on) => {
-    const w = world($, on);
+    const w = world(on);
     await auto($);
     await say($, 'delete the old branch');
     w.sessionId = 's2';
@@ -69,13 +69,13 @@ describe('what the judge reads', () => {
   });
 
   test('messages sent at once are all kept', async ($, on) => {
-    const w = world($, on);
+    const w = world(on);
     await Promise.all([say($, 'fix the tests'), say($, 'but do not push', 'bridge')]);
     expect(turnsOf(w)).toEqual(['fix the tests', 'but do not push']);
   });
 
   test('the store keeps the conversations written in most recently', async ($, on) => {
-    const w = world($, on, {
+    const w = world(on, {
       store: new Map<string, unknown>([
         ['turns:s1', kept(0, 'earlier')],
         ...Array.from({ length: 50 }, (_, i): [string, unknown] => [
@@ -91,7 +91,7 @@ describe('what the judge reads', () => {
   });
 
   test('the judge reads the words as they were before a message being written, or after it', async ($, on) => {
-    const w = world($, on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
+    const w = world(on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
     await auto($);
     let release = () => {};
     const writing = new Promise<void>((resolve) => {
@@ -121,7 +121,7 @@ describe('what the judge reads', () => {
   });
 
   test('a write the store refuses keeps the words it had, and later words are still kept', async ($, on) => {
-    const w = world($, on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
+    const w = world(on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
     w.storeLimit = JSON.stringify(Object.fromEntries(w.store)).length + 50;
     await say($, 'x'.repeat(100)).catch(() => {});
     expect(turnsOf(w)).toEqual(['do not push']);

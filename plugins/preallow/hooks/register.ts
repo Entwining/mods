@@ -9,8 +9,6 @@ import { ANSWER_PREFIX, remember } from './messages.ts';
 
 const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes);
 
-// What the judge runs on when the user leaves the `model` or `effort`
-// setting empty.
 const JUDGE_MODEL = 'opus';
 const JUDGE_EFFORT = 'medium';
 
@@ -21,8 +19,8 @@ const RESERVED_TOOLS = new Set(['SubagentHandback', 'AskUserQuestion', 'ExitPlan
 
 // The fields of the core's answer that put an ask to someone other than the
 // classifier: a settings rule, a classic hook, an option's own check (the read
-// block, which asks the person), a host that answers the session's asks, and
-// an organization's ceiling. Every field but the verdict and its reason is
+// block, which asks the person), another plugin, and an organization's
+// ceiling. Every field but the verdict and its reason is
 // listed, so `bun run typecheck:core` fails on a field the engine adds until
 // it is marked here; a field marked false is read as information and leaves
 // the ask to the judge.
@@ -30,7 +28,7 @@ const OWNS_ASK = {
   rule: true,
   hook: true,
   setting: true,
-  decider: true,
+  plugin: true,
   ceiling: true,
 } satisfies Record<Exclude<keyof ToolCheckResult, 'decision' | 'reason'>, boolean>;
 
@@ -103,17 +101,26 @@ export const register: Register = (on, options) => {
       if (id !== undefined)
         record($, { event, tool_use_id: id, agentId: e.agentId, tool: e.tool, ...details });
     };
-    // Leaves the ask to the core without asking the judge.
     const leave = (event: string, details: Record<string, unknown> = {}) => {
       log(event, { ...details, coreReason: core.reason });
       return core;
     };
 
+    if (e.approver === 'host') return leave('owned', { ownedBy: 'approver', approver: e.approver });
     const ownedBy = (Object.keys(OWNS_ASK) as Array<keyof typeof OWNS_ASK>).find(
       (field) => OWNS_ASK[field] && core[field] !== undefined,
     );
     if (ownedBy !== undefined) return leave('owned', { ownedBy, [ownedBy]: core[ownedBy] });
     if (RESERVED_TOOLS.has(e.tool)) return leave('reserved');
+
+    // A hook allow approves the command, not its network grants.
+    const domains = (e.input as { allowed_domains?: unknown }).allowed_domains;
+    if (
+      ['Bash', 'PowerShell', 'Monitor'].includes(e.tool) &&
+      Array.isArray(domains) &&
+      domains.length > 0
+    )
+      return leave('network');
 
     // A call run in the background returns before its output arrives, and the
     // plugin cannot scan what reaches the model later.
