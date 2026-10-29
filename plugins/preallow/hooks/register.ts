@@ -2,15 +2,18 @@ import { atom, read, update } from 'claude-code';
 import type { Register, ToolCheckResult } from 'claude-code';
 
 import type { Modes } from '../types';
-import { judgeCall, judgeCase, judgePrompt, type JudgeSettings } from './judge.ts';
+import { judgeCase, judgePrompt } from './judge.ts';
+import { judgeCall, type JudgeSettings } from './stages.ts';
 import { loggedInput, record } from './log.ts';
 import { rerunWarning, WITHHELD, withholding } from './withhold.ts';
 import { ANSWER_PREFIX, remember } from './messages.ts';
 
 const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes);
 
-const JUDGE_MODEL = 'opus';
-const JUDGE_EFFORT = 'medium';
+const JUDGE_MODEL = 'haiku';
+const JUDGE_EFFORT = 'high';
+const ESCALATION_MODEL = 'opus';
+const ESCALATION_EFFORT = 'medium';
 
 // Tools whose verdict the engine keeps whatever a hook answers: it rejects a
 // hook's allow of a subagent's handback, which only the classifier may allow,
@@ -38,11 +41,20 @@ const ENGINE_REJECTION = 'Only the auto-mode classifier can allow';
 
 export const register: Register = (on, options) => {
   // The settings go to the model client as the user wrote them; a value it
-  // refuses fails the judge call, which leaves the call to the classifier.
-  // An emptied field counts as unset.
+  // refuses fails that stage's judge call, which does not allow the call.
+  // An emptied field counts as unset. The default models are a pair: someone
+  // who picks the judge's model is not given a second judge they did not pick.
+  const setting = (key: string) => (options[key] as string | undefined) || undefined;
+  const model = setting('model');
+  const escalationModel =
+    setting('escalation_model') ?? (model === undefined ? ESCALATION_MODEL : undefined);
   const settings: JudgeSettings = {
-    model: (options.model as string | undefined) || JUDGE_MODEL,
-    effort: (options.effort as string | undefined) || JUDGE_EFFORT,
+    model: model ?? JUDGE_MODEL,
+    effort: setting('effort') ?? JUDGE_EFFORT,
+    escalation:
+      escalationModel === undefined
+        ? undefined
+        : { model: escalationModel, effort: setting('escalation_effort') ?? ESCALATION_EFFORT },
   };
   // Calls the plugin allowed, by tool_use_id, so their output is scanned
   // before the model reads it; calls left to the core when they run again,
@@ -151,22 +163,9 @@ export const register: Register = (on, options) => {
     );
     const promptDigest = btoa(String.fromCharCode(...new Uint8Array(hash)));
     if (deniedCalls.has(promptDigest)) return leave('repeated');
-    const verdict = await judgeCall($, settings, call);
-    log('judged', {
-      input: loggedInput(e.input),
-      coreReason: core.reason,
-      verdict: verdict.verdict,
-      reason: verdict.reason,
-      isAnswered: verdict.isAnswered,
-      failure: verdict.failure,
-      retried: verdict.retried,
-      checks: verdict.checks,
-      facts: verdict.facts,
-      ms: verdict.ms,
-      model: settings.model,
-      effort: settings.effort,
-      usage: verdict.usage,
-    });
+    const judged = await judgeCall($, settings, call);
+    log('judged', { input: loggedInput(e.input), coreReason: core.reason, ...judged });
+    const verdict = judged.escalation ?? judged;
 
     if (id !== undefined) {
       if (verdict.verdict === 'allow') allowedCalls.set(id, key);

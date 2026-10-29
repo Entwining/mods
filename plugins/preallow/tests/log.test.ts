@@ -56,7 +56,7 @@ describe('the log', () => {
       });
     };
     await denied('t1');
-    expect(w.modelCalls).toHaveLength(1);
+    expect(w.modelCalls).toHaveLength(2);
     const lines = await w.logged(2);
     expect(lines.map((line) => [line.event, line.tool_use_id, line.verdict])).toEqual([
       ['judged', 't1', 'review'],

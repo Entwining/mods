@@ -1,19 +1,19 @@
 // The judge: one policy for every tool, applied by a model to the call and to
-// what the user said. `judge` takes the model call, the fact reader, and the
-// clock as functions, so an evaluation outside the engine runs the same
-// prompt, parsing, retries, and checks; `judgeCall` binds them to the session.
+// what the user said. `judge` is one stage and takes the model call, the fact
+// reader, and the clock as functions, so an evaluation outside the engine runs
+// the same prompt, parsing, retries, and checks; `stages.ts` binds them to the
+// session for each stage.
 
 import type {
   EngineInterface,
   ModelApiError,
   ModelCompleteRequest,
   ModelCompleteResult,
-  ModelEffort,
   ModelTextBlock,
   ModelUsage,
 } from 'claude-code';
 
-import { gatherFacts, type FactRequest } from './facts.ts';
+import type { FactRequest } from './facts.ts';
 import { JUDGE_SYSTEM } from './policy.ts';
 import { parseVerdict, type Reply } from './verdict.ts';
 import { clip, keptMessages, userMessages, type UserMessages } from './messages.ts';
@@ -67,7 +67,8 @@ const BRIEF_CHARS = 8000;
 const JUDGE_TIMEOUT_MS = 90_000;
 // Empty replies come between replies to prompts of the same size seconds
 // apart, so a call made again shortly after usually gets one. The wait, unlike
-// a model call, counts against the hook's own ten-second budget.
+// a model call, counts against the hook's own ten-second budget: a stage waits
+// at most once per round, so both stages together wait at most four times.
 const RETRY_DELAY_MS = 2000;
 // The API errors the engine says may clear on their own: overload, rate
 // limits, and the server's own failures.
@@ -207,8 +208,6 @@ async function briefOf($: EngineInterface, agentId: string | undefined) {
   return messages.find((message) => message.role === 'user')?.text;
 }
 
-export type JudgeSettings = { model: string; effort: string };
-
 // What the judge reads about a call before any check.
 export async function judgeCase(
   $: EngineInterface,
@@ -223,39 +222,4 @@ export async function judgeCase(
     $.session.cwd(),
   ]);
   return { tool, input, messages, brief, cwd };
-}
-
-export async function judgeCall(
-  $: EngineInterface,
-  settings: JudgeSettings,
-  call: JudgeCase & { cwd: string },
-): Promise<Verdict & { ms: number }> {
-  const started = Date.now();
-  return {
-    ...(await judge(call, {
-      complete: (request) =>
-        $.model.complete({
-          ...request,
-          model: settings.model,
-          effort: settings.effort as ModelEffort,
-          maxTokens: 8192,
-        }),
-      gather: async (requests) =>
-        gatherFacts(
-          {
-            run: (argv, init) => $.process.run(argv, init),
-            exists: (path) => $.fs.exists(path),
-            stat: (path) => $.fs.stat(path),
-            list: (path) => $.fs.list(path),
-            cwd: call.cwd,
-            home: await $.env.get('HOME'),
-            startedAt: (await $.session.usage()).startedAt,
-          },
-          requests,
-        ),
-      now: () => $.clock.now(),
-      sleep: (ms) => $.clock.sleep(ms),
-    })),
-    ms: Date.now() - started,
-  };
 }

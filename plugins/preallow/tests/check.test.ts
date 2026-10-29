@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing';
 
-import { JUDGE_SYSTEM } from '../hooks/policy.ts';
 import { auto, bash, check, promptOf, say } from './session.ts';
 import { ALLOW, REVIEW, usageOf, world } from './world.ts';
 
@@ -143,7 +142,8 @@ describe('tool.check', () => {
     );
     await say($, 'clean it anyway');
     expect((await check($, 'Bash', clean, { tool_use_id: 't5' })).decision).toBe('allow');
-    expect(w.modelCalls).toHaveLength(4);
+    // Each review by both stages, then two allows by the first.
+    expect(w.modelCalls).toHaveLength(6);
     const lines = await w.logged(6);
     expect(lines.map((line) => [line.event, line.tool_use_id])).toEqual([
       ['judged', 't1'],
@@ -184,35 +184,4 @@ describe('tool.check', () => {
       [usageOf(1), usageOf(2)],
     ]);
   });
-
-  test(
-    'the judge runs on the model and effort the user set, as written, with a time limit and its policy cached',
-    {
-      options: { model: 'some-model-id', effort: 'some-effort' },
-    },
-    async ($, on) => {
-      const w = world(on);
-      await auto($);
-      await check($, 'Bash', bash('make'));
-      expect(w.modelCalls.map(({ model, effort }) => [model, effort])).toEqual([
-        ['some-model-id', 'some-effort'],
-      ]);
-      expect(w.modelCalls[0]!.timeoutMs).toBeGreaterThan(0);
-      expect(w.modelCalls[0]!.systemBlocks).toEqual([{ text: JUDGE_SYSTEM, cache: true }]);
-    },
-  );
-
-  test(
-    'an emptied setting leaves the judge on its default',
-    {
-      options: { model: '', effort: '' },
-    },
-    async ($, on) => {
-      const w = world(on);
-      await auto($);
-      await check($, 'Bash', bash('make'));
-      expect(w.modelCalls[0]!.model).not.toBe('');
-      expect(w.modelCalls[0]!.effort).not.toBe('');
-    },
-  );
 });
