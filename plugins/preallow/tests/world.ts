@@ -2,13 +2,15 @@
 
 import { mock } from 'claude-code/testing';
 import type { ModelTextBlock, On, ToolCheckResult } from 'claude-code';
+import type { MockClock } from 'claude-code/testing';
 
 export type World = {
   core: ToolCheckResult;
-  // The judge's reply; undefined answers no text, as an API error does.
-  // Queued replies are given first, one per model call.
-  reply: string | undefined;
-  replies: Array<string | undefined>;
+  // The judge's reply: its text; undefined answers an API error the engine
+  // classes as an invalid request, and an object answers no text for the
+  // reason it gives. Queued replies are given first, one per model call.
+  reply: Reply;
+  replies: Reply[];
   modelCalls: Array<{
     model: string;
     effort?: string;
@@ -37,6 +39,8 @@ export type World = {
   // What the model reads beside the result.
   context: string[] | undefined;
   ran: number;
+  // The session's clock, which moves only when a test moves it.
+  clock: MockClock;
   sessionId: string;
   env: Record<string, string>;
   // The plugin's store, in insertion order, and how many characters of JSON
@@ -50,6 +54,8 @@ export type World = {
   // Resolves once the session's log, or the part at `path`, holds `count` lines.
   logged: (count: number, path?: string) => Promise<Array<Record<string, unknown>>>;
 };
+
+type Reply = string | undefined | { reason: string };
 
 export const ALLOW = JSON.stringify({ reason: 'a reversible step of the task', verdict: 'allow' });
 export const REVIEW = JSON.stringify({
@@ -95,6 +101,7 @@ export function world(on: On, partial: Partial<World> = {}): World {
     record: undefined,
     context: undefined,
     ran: 0,
+    clock: mock.clock(on),
     sessionId: 's1',
     env: { HOME: '/home/u' },
     store: new Map(),
@@ -146,7 +153,9 @@ export function world(on: On, partial: Partial<World> = {}): World {
     const value =
       reply === undefined
         ? { isAnswered: false, reason: 'api-error', error: 'invalid_request', status: 400 }
-        : { isAnswered: true, text: reply };
+        : typeof reply === 'string'
+          ? { isAnswered: true, text: reply }
+          : { isAnswered: false, ...reply };
     return { value: { ...value, usage: usageOf(w.modelCalls.length) } } as never;
   });
   on('session.cwd', async () => ({ value: '/w' }) as never);

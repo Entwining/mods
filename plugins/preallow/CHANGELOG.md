@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.9 - unreleased
+
+- A judge model call that comes back without a reply, or with an API error that may clear on its own, such as an overloaded server, is made once more two seconds later instead of sending the tool call to the classifier. The judge's 90 seconds now cover all its model calls for one tool call, retries and the call after a check included.
+- Each `judged` line in the log says in `isAnswered` whether the judge's model answered and, when it did not, why in `failure`, instead of inside `reason`; `retried` lists the failures a call was made again after.
+
 ## 0.0.8 - 2026-10-22
 
 - Follow Claude Code's current approval API: leave hosted approvals and asks made by another plugin to their owner. Requires Claude Code 2.1.308 or later.

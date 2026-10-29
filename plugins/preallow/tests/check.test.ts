@@ -127,10 +127,28 @@ describe('tool.check', () => {
     await auto($);
     expect((await check($, 'Bash', bash('make'))).decision).toBe('ask');
     const [line] = await w.logged(1);
-    expect([line!.verdict, line!.reason, line!.usage]).toEqual([
+    expect([line!.verdict, line!.isAnswered, line!.failure, line!.usage]).toEqual([
       'review',
-      expect.stringContaining('api-error invalid_request (400)'),
+      false,
+      'api-error invalid_request (400)',
       [usageOf(1)],
+    ]);
+  });
+
+  test("an empty reply is asked again after a wait on the session's clock", async ($, on) => {
+    const w = world(on, { replies: [{ reason: 'empty-reply' }] });
+    await auto($);
+    const checked = check($, 'Bash', bash('make'));
+    await w.clock.settle();
+    expect(w.modelCalls).toHaveLength(1);
+    await w.clock.advance(2000);
+    expect((await checked).decision).toBe('allow');
+    const [line] = await w.logged(1);
+    expect([line!.isAnswered, line!.failure, line!.retried, line!.usage]).toEqual([
+      true,
+      undefined,
+      ['empty-reply'],
+      [usageOf(1), usageOf(2)],
     ]);
   });
 
