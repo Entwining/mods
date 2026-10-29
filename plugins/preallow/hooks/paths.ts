@@ -1,5 +1,5 @@
 // Facts about a path the judge names: whether it exists, how many of its
-// files predate the session, and its git status.
+// files changed before the session began, and its git status.
 
 import type { Host } from './facts.ts';
 import { git, gitOk } from './git.ts';

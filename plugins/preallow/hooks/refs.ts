@@ -110,8 +110,9 @@ export async function refFacts(host: Host, repo: string, ref: string) {
 }
 
 // A fetch updates the remote refs every worktree shares but writes FETCH_HEAD
-// in the worktree it ran in, so the refs are as fresh as the newest FETCH_HEAD
-// among the main worktree and the linked ones.
+// in the worktree it ran in, so the newest FETCH_HEAD among the main worktree
+// and the linked ones dates the last fetch, which need not have updated the
+// ref asked about.
 async function lastFetch(host: Host, dir: string): Promise<string> {
   const common = (
     await gitOk(host.run, dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])

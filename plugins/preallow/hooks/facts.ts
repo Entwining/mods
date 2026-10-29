@@ -17,7 +17,7 @@ export type Host = {
   // The directory relative paths resolve from, and `~`.
   cwd: string;
   home: string | undefined;
-  // When the session began: a file changed before then predates the task.
+  // When the session began, which file modification times are counted against.
   startedAt: number;
 };
 

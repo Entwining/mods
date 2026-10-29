@@ -7,10 +7,11 @@ import { world } from './world.ts';
 // Values are built at run time, so no scanner takes the source for a leak.
 const RANDOM = 'q7Rk2Vx9Lm4Np8Ts3Wz6Yb1Hc5';
 const FAKE_TOKEN = `sk-${RANDOM}`;
-// A value spread evenly over its alphabet, as uniform as a generated token.
 const B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const BECH32 = 'QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L';
 const DIGITS = '1234567890';
+// A value spread evenly over its alphabet, so it passes the entropy check of
+// gitleaks' rules as a generated token does.
 const mixed = (n: number, alphabet = B62) =>
   Array.from({ length: n }, (_, i) => alphabet[(i * 7) % alphabet.length]).join('');
 

@@ -26,8 +26,8 @@ export function keptMessages({ turns, leftOut }: UserMessages): readonly string[
   return [first!, `[${leftOut} messages left out]`, ...rest];
 }
 
-// The head and tail of a long text, which hold a message's request and its
-// last word.
+// The head and tail of a long text, where a message usually puts its request
+// and its last word.
 export function clip(text: string, max: number): string {
   if (text.length <= max) return text;
   const head = Math.floor(max * 0.75);

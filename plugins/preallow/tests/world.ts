@@ -67,7 +67,8 @@ export const LOG = '/home/u/.claude/preallow/s1.jsonl';
 export const REJECTION =
   "Only the auto-mode classifier can allow mcp__srv__handoff: an allow of type 'hook' is not the classifier's verdict";
 
-// What the judge model's nth call costs, distinct for each call.
+// What the judge model's nth call costs, distinct for each call so a usage
+// entry dropped or counted twice shows.
 export const usageOf = (n: number) => ({
   input_tokens: n,
   output_tokens: 10 * n,

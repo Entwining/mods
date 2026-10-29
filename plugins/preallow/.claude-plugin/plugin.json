@@ -11,7 +11,7 @@
     "model": {
       "type": "string",
       "title": "Judge model",
-      "description": "The model the judge of every call runs on, passed to the model client as you write it: an alias or a full model id. Leave empty for the plugin's default pair, haiku with a second judge on opus. If you set it and leave the second judge's model empty, there is no second judge."
+      "description": "The model the judge of every call runs on, passed to the model client as you write it: an alias or a full model id. Leave empty for the plugin's default pair, haiku with a second judge on opus. If you set it and leave Escalation model empty, there is no second judge."
     },
     "effort": {
       "type": "string",
@@ -21,7 +21,7 @@
     "escalation_model": {
       "type": "string",
       "title": "Escalation model",
-      "description": "The model of a second judge for every call the first judge did not allow, failures included; it judges the call again from the start, and its verdict is final. Passed as you write it. Leave empty for opus when the judge model is empty too, or for no second judge when you set the judge model."
+      "description": "The model of a second judge for every call the first judge did not allow, failures included; it judges the call again from the start, and its verdict is final. Passed as you write it. Leave empty for opus when Judge model is empty too, or for no second judge when you set Judge model."
     },
     "escalation_effort": {
       "type": "string",

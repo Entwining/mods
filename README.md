@@ -2,9 +2,9 @@
 
 Claude Code plugins built on function hooks, published as the `entwining-mods` marketplace.
 
-| Mod                          | What it does                                                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [preallow](plugins/preallow) | In auto mode, a model judge runs the steps of your task without the classifier, leaving irreversible effects you did not explicitly ask for to it |
+| Mod                          | What it does                                                                                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [preallow](plugins/preallow) | In auto mode, a model judge allows the steps of your task without the classifier, leaving the rest to it, such as a leak or an irreversible effect you did not explicitly ask for |
 
 ## Install
 

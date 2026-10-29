@@ -62,8 +62,8 @@ export type JudgeHost = {
 // longer than this goes to the classifier unjudged.
 const INPUT_CHARS = 100_000;
 const BRIEF_CHARS = 8000;
-// A judge that has not answered by then, retries included, sends the call to
-// the classifier.
+// A judge that has not answered by then, retries included, answers review,
+// which the second stage, if there is one, judges again.
 const JUDGE_TIMEOUT_MS = 90_000;
 // Empty replies come between replies to prompts of the same size seconds
 // apart, so a call made again shortly after usually gets one. The wait, unlike
