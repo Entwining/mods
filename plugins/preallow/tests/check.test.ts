@@ -122,6 +122,39 @@ describe('tool.check', () => {
     expect(w.ran).toBe(0);
   });
 
+  test('a call auto mode denied, made again unchanged, goes to the classifier until the user speaks', async ($, on) => {
+    const w = world(on, { reply: REVIEW });
+    await auto($);
+    await say($, 'tidy the repository');
+    const clean = bash('make clean');
+    await check($, 'Bash', clean);
+    await $.classic.PermissionDenied({
+      tool_name: 'Bash',
+      tool_input: clean,
+      tool_use_id: 't1',
+      reason: '[Synthetic]',
+    });
+    // A review auto mode did not deny leaves the call to the judge.
+    await check($, 'Bash', bash('make lint'), { tool_use_id: 't2' });
+    w.reply = ALLOW;
+    expect(await check($, 'Bash', clean, { tool_use_id: 't3' })).toEqual(w.core);
+    expect((await check($, 'Bash', bash('make lint'), { tool_use_id: 't4' })).decision).toBe(
+      'allow',
+    );
+    await say($, 'clean it anyway');
+    expect((await check($, 'Bash', clean, { tool_use_id: 't5' })).decision).toBe('allow');
+    expect(w.modelCalls).toHaveLength(4);
+    const lines = await w.logged(6);
+    expect(lines.map((line) => [line.event, line.tool_use_id])).toEqual([
+      ['judged', 't1'],
+      ['denied', 't1'],
+      ['judged', 't2'],
+      ['repeated', 't3'],
+      ['judged', 't4'],
+      ['judged', 't5'],
+    ]);
+  });
+
   test('a judge that gives no reply leaves the call to the classifier, saying why and what the call cost', async ($, on) => {
     const w = world(on, { reply: undefined });
     await auto($);

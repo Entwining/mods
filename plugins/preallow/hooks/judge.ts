@@ -200,50 +200,53 @@ async function briefOf($: EngineInterface, agentId: string | undefined) {
 
 export type JudgeSettings = { model: string; effort: string };
 
-export async function judgeCall(
+// What the judge reads about a call before any check.
+export async function judgeCase(
   $: EngineInterface,
-  settings: JudgeSettings,
   tool: string,
   input: unknown,
   agentId: string | undefined,
+): Promise<JudgeCase & { cwd: string }> {
+  const [messages, brief, cwd] = await Promise.all([
+    userMessages($),
+    briefOf($, agentId),
+    // Read inside the hook: a subagent's loop may run in a directory of its own.
+    $.session.cwd(),
+  ]);
+  return { tool, input, messages, brief, cwd };
+}
+
+export async function judgeCall(
+  $: EngineInterface,
+  settings: JudgeSettings,
+  call: JudgeCase & { cwd: string },
 ): Promise<Verdict & { ms: number }> {
   const started = Date.now();
-  // Read inside the hook: a subagent's loop may run in a directory of its own.
-  const cwd = await $.session.cwd();
   return {
-    ...(await judge(
-      {
-        tool,
-        input,
-        messages: await userMessages($),
-        brief: await briefOf($, agentId),
-        cwd,
-      },
-      {
-        complete: (request) =>
-          $.model.complete({
-            ...request,
-            model: settings.model,
-            effort: settings.effort as ModelEffort,
-            maxTokens: 8192,
-          }),
-        gather: async (requests) =>
-          gatherFacts(
-            {
-              run: (argv, init) => $.process.run(argv, init),
-              exists: (path) => $.fs.exists(path),
-              stat: (path) => $.fs.stat(path),
-              list: (path) => $.fs.list(path),
-              cwd,
-              home: await $.env.get('HOME'),
-              startedAt: (await $.session.usage()).startedAt,
-            },
-            requests,
-          ),
-        now: () => $.clock.now(),
-        sleep: (ms) => $.clock.sleep(ms),
-      },
-    )),
+    ...(await judge(call, {
+      complete: (request) =>
+        $.model.complete({
+          ...request,
+          model: settings.model,
+          effort: settings.effort as ModelEffort,
+          maxTokens: 8192,
+        }),
+      gather: async (requests) =>
+        gatherFacts(
+          {
+            run: (argv, init) => $.process.run(argv, init),
+            exists: (path) => $.fs.exists(path),
+            stat: (path) => $.fs.stat(path),
+            list: (path) => $.fs.list(path),
+            cwd: call.cwd,
+            home: await $.env.get('HOME'),
+            startedAt: (await $.session.usage()).startedAt,
+          },
+          requests,
+        ),
+      now: () => $.clock.now(),
+      sleep: (ms) => $.clock.sleep(ms),
+    })),
     ms: Date.now() - started,
   };
 }

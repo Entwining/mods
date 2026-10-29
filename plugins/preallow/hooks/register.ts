@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code';
 import type { Register, ToolCheckResult } from 'claude-code';
 
 import type { Modes } from '../types';
-import { judgeCall, type JudgeSettings } from './judge.ts';
+import { judgeCall, judgeCase, judgePrompt, type JudgeSettings } from './judge.ts';
 import { loggedInput, record } from './log.ts';
 import { rerunWarning, WITHHELD, withholding } from './withhold.ts';
 import { ANSWER_PREFIX, remember } from './messages.ts';
@@ -47,10 +47,13 @@ export const register: Register = (on, options) => {
   // Calls the plugin allowed, by tool_use_id, so their output is scanned
   // before the model reads it; calls left to the core when they run again,
   // after their output was withheld or the engine rejected the plugin's allow;
-  // and the calls the judge left to review, so a denial of one is logged.
+  // the calls the judge left to review, by tool_use_id, with a digest of the
+  // judge's first prompt, so a denial of one is logged; and the digests of
+  // those auto mode denied.
   const allowedCalls = new Map<string, string>();
   const coreCalls = new Set<string>();
-  const reviewCalls = new Set<string>();
+  const reviewCalls = new Map<string, string>();
+  const deniedCalls = new Set<string>();
 
   // Subagents can run under a mode of their own, and the user can switch
   // modes mid-turn, so every classic event that reports a mode updates its
@@ -72,8 +75,12 @@ export const register: Register = (on, options) => {
   // The engine raises this only for auto mode's denials, including those made
   // without a classifier verdict.
   on('classic.PermissionDenied', async ($, e, next) => {
-    if (reviewCalls.has(e.tool_use_id))
+    const promptDigest = reviewCalls.get(e.tool_use_id);
+    if (promptDigest !== undefined) {
+      reviewCalls.delete(e.tool_use_id);
+      deniedCalls.add(promptDigest);
       record($, { event: 'denied', tool_use_id: e.tool_use_id, reason: e.reason.slice(0, 300) });
+    }
     return next(e);
   });
 
@@ -129,7 +136,15 @@ export const register: Register = (on, options) => {
 
     const key = `${e.tool} ${JSON.stringify(e.input)}`;
     if (coreCalls.has(key)) return core;
-    const verdict = await judgeCall($, settings, e.tool, e.input, e.agentId);
+    const call = await judgeCase($, e.tool, e.input, e.agentId);
+    // The judge's first prompt holds the call with the user's words, so a
+    // call auto mode denied comes back the same until the user speaks again;
+    // judged again, it could be allowed where nothing lifted the denial. Kept
+    // as a digest: a prompt can run to a few hundred kilobytes.
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(judgePrompt(call)));
+    const promptDigest = btoa(String.fromCharCode(...new Uint8Array(hash)));
+    if (deniedCalls.has(promptDigest)) return leave('repeated');
+    const verdict = await judgeCall($, settings, call);
     log('judged', {
       input: loggedInput(e.input),
       coreReason: core.reason,
@@ -148,7 +163,7 @@ export const register: Register = (on, options) => {
 
     if (id !== undefined) {
       if (verdict.verdict === 'allow') allowedCalls.set(id, key);
-      else reviewCalls.add(id);
+      else reviewCalls.set(id, promptDigest);
     }
 
     if (verdict.verdict !== 'allow') return core;

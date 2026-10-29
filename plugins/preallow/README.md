@@ -38,6 +38,7 @@ Set them in `/config` or when you install. The plugin passes what you write to t
 - A call run in the background (`run_in_background`), such as a dev server or a watcher: its output reaches the model after the call returns, where the plugin cannot scan it.
 - A Bash, PowerShell, or command-monitor call with a non-empty `allowed_domains` list: the classifier reviews the command and registers approved network grants; a hook allow approves the command without granting the hosts.
 - A call whose output the plugin withheld, or whose allow the engine rejected, when it runs again.
+- A call auto mode denied after the judge left it to review, when the agent makes it again with the same input, in the same directory and, for a subagent, with the same brief, before you write again. Judging it again could only repeat the review or undo the denial with nothing new from you; once you have written, the call is judged again with your new words.
 - A tool whose verdict the engine keeps whatever a hook answers: a subagent's report to its parent (`SubagentHandback`), which only the classifier may allow, and a question to you or a plan for your approval (`AskUserQuestion`, `ExitPlanMode`), which wait for you. The judge is not asked, since its allow would be rejected or ignored.
 
 ## Output it withholds
@@ -64,6 +65,7 @@ The plugin logs one JSON line per event to `~/.claude/preallow/<session-id>.json
 - `background`: a call run in the background, left to the classifier without asking the judge, with why the core asked.
 - `network`: a sandbox command requesting per-command domain grants, left to the classifier without asking the judge, with why the core asked.
 - `rejected`: the engine rejected the plugin's allow of a call because only the classifier may allow that tool, with the start of its message in `reason`. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
+- `repeated`: a call auto mode denied, made again unchanged before you wrote again, left to the classifier without asking the judge, with why the core asked.
 - `denied`: auto mode denied a call the judge left to review, with the start of its reason in `reason`; auto mode can deny without a classifier verdict. The matching `judged` line says why the judge did not allow it.
 - `withheld`: the plugin withheld the output of a call it allowed, and why in `reason` (never the output).
 

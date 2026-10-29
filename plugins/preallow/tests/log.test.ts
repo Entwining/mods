@@ -66,7 +66,7 @@ describe('the log', () => {
 
     // Denied without the judge, then a later call judged and denied.
     await denied('t2', { command: 'make', run_in_background: true });
-    await denied('t3');
+    await denied('t3', bash('make test'));
     const later = await w.logged(5);
     expect(later.slice(2).map((line) => [line.event, line.tool_use_id])).toEqual([
       ['background', 't2'],
