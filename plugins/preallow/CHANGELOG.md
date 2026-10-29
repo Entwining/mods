@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.0.9 - unreleased
+## 0.0.10 - 2026-10-29
+
+- A git commit hash in an output that names Sourcegraph is no longer taken for a Sourcegraph access token; a token without the `sgp_` prefix is still found under a name such as `SRC_ACCESS_TOKEN`.
+
+## 0.0.9 - 2026-10-29
 
 - The judge runs on `haiku` at `high` effort instead of `opus` at `medium`, and a second judge on `opus` at `medium` judges again, from the start, every call the first did not allow, including one it gave no verdict on; the second judge's verdict is final. The new `escalation_model` and `escalation_effort` settings choose the second judge; if you set `model` and leave `escalation_model` empty, there is none. Each `judged` line in the log keeps the first judge's fields and gives the second judge's in `escalation`.
 - The judge's instructions are rewritten as decisions taken in order: leaks first, then whether the call serves your task and respects what you ruled out, then work on your own repositories, then whether each effect can be undone, and last whether your words explicitly cover the irreversible ones. They describe each field the judge reads and each fact a check returns, including what a fact does not establish, such as file times saying nothing about who made a file. The wording was chosen by evaluating it against real calls.

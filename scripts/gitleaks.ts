@@ -21,6 +21,16 @@ const IDENTIFIER = String.raw`[\w.-]{0,50}?`;
 // between a key file's markers, such as a placeholder sentence, for a key.
 const LEFT_OUT = new Set(['generic-api-key', 'hashicorp-tf-password', 'private-key']);
 
+// An alternative taken out of a rule, with the keyword only it needed.
+// `sourcegraph-access-token` also takes any 40-character hex string in a text
+// that names Sourcegraph, so every git commit hash beside the name. A legacy
+// token without the `sgp_` prefix is told from a hash only by a name such as
+// `SRC_ACCESS_TOKEN` before it, which `withhold.ts` reads as a secret
+// assignment; Betterleaks' rule keeps only the `sgp_` forms too.
+const NARROWED: Record<string, { alternative: string; keyword: string }> = {
+  'sourcegraph-access-token': { alternative: '|[a-fA-F0-9]{40}', keyword: 'sourcegraph' },
+};
+
 // How gitleaks ends a provider token, consuming the character after it since
 // Go's engine has no lookahead. That misses a token followed by a full stop,
 // a comma, a bracket, a colon, or `@`, and takes the separator a following
@@ -143,18 +153,27 @@ const rules = config.rules
     // A rule without a regex matches file paths, not text.
     rule.regex === undefined || LEFT_OUT.has(rule.id) ? [] : [{ ...rule, regex: rule.regex }],
   )
-  .map((rule) => ({
-    id: rule.id,
-    regex:
-      toJs(rule.regex.replaceAll(IDENTIFIER, '')).replaceAll(TOKEN_END, String.raw`(?![\w-])`) +
-      (isLiteral(rule.regex) ? TOKEN_BODY : ''),
-    keywords: (rule.keywords ?? []).map((k) => k.toLowerCase()),
-    entropy: rule.entropy ?? 0,
-    secretGroup: rule.secretGroup ?? 0,
-    allowlists: (rule.allowlists ?? [])
-      .map(allowlist)
-      .filter((list) => list.regexes.length > 0 || list.stopwords.length > 0),
-  }));
+  .map((rule) => {
+    const narrowed = NARROWED[rule.id];
+    if (narrowed !== undefined && !rule.regex.includes(narrowed.alternative))
+      throw new Error(`${rule.id} no longer has the alternative ${narrowed.alternative}`);
+    const stripped = rule.regex.replaceAll(IDENTIFIER, '');
+    const regex = narrowed === undefined ? stripped : stripped.replace(narrowed.alternative, '');
+    return {
+      id: rule.id,
+      regex:
+        toJs(regex).replaceAll(TOKEN_END, String.raw`(?![\w-])`) +
+        (isLiteral(rule.regex) ? TOKEN_BODY : ''),
+      keywords: (rule.keywords ?? [])
+        .map((k) => k.toLowerCase())
+        .filter((k) => k !== narrowed?.keyword),
+      entropy: rule.entropy ?? 0,
+      secretGroup: rule.secretGroup ?? 0,
+      allowlists: (rule.allowlists ?? [])
+        .map(allowlist)
+        .filter((list) => list.regexes.length > 0 || list.stopwords.length > 0),
+    };
+  });
 
 const source = `https://github.com/gitleaks/gitleaks/blob/${VERSION}/config/gitleaks.toml`;
 const license = (await fetchText('LICENSE')).trim();

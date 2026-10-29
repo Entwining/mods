@@ -1738,8 +1738,8 @@ export const rules = [
   {
     id: 'sourcegraph-access-token',
     regex:
-      '(?i:\\b(\\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40}|[a-fA-F0-9]{40})\\b)(?![\\w-]))',
-    keywords: ['sgp_', 'sourcegraph'],
+      '(?i:\\b(\\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40})\\b)(?![\\w-]))',
+    keywords: ['sgp_'],
     entropy: 3,
     secretGroup: 0,
     allowlists: [],

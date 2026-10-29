@@ -10,6 +10,7 @@ const FAKE_TOKEN = `sk-${RANDOM}`;
 const B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const BECH32 = 'QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L';
 const DIGITS = '1234567890';
+const HEX = '0123456789abcdef';
 // A value spread evenly over its alphabet, so it passes the entropy check of
 // gitleaks' rules as a generated token does.
 const mixed = (n: number, alphabet = B62) =>
@@ -62,6 +63,10 @@ describe('findSecret', () => {
     ['npm-access-token', `The token is npm_${mixed(36)}.`],
     ['atlassian-api-token', `ATATT3${mixed(186)}`],
     ['okta-access-token', `OKTA = 00${mixed(40)}`],
+    ['sourcegraph-access-token', `sgp_${mixed(16, HEX)}_${mixed(40, HEX)}`],
+    // A legacy Sourcegraph token has no prefix; only its name tells it from a
+    // commit hash.
+    ['secret assignment', `SRC_ACCESS_TOKEN=${mixed(40, HEX)}`],
   ];
   for (const [kind, text] of found) {
     test(`${kind}: ${text}`, () => {
@@ -103,6 +108,7 @@ describe('findSecret', () => {
     `hf_${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}abcdefgh`,
     `sonar.login=${'abcdefghijklmnopqrstuvwxyz'}0123456789abcd`,
     `data:\n  color: ${'Ymx1ZQ'.repeat(3)}\n---\napiVersion: v1\nkind: Secret\ntype: Opaque`,
+    `Sourcegraph search, commit ${mixed(40, HEX)}`,
   ];
   for (const [name, run] of [
     ['word characters and hyphens', 'a-'.repeat(500_000)],
