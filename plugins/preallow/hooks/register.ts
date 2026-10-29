@@ -141,7 +141,14 @@ export const register: Register = (on, options) => {
     // call auto mode denied comes back the same until the user speaks again;
     // judged again, it could be allowed where nothing lifted the denial. Kept
     // as a digest: a prompt can run to a few hundred kilobytes.
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(judgePrompt(call)));
+    const hash = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(
+        judgePrompt(call)
+          .map(({ text }) => text)
+          .join(''),
+      ),
+    );
     const promptDigest = btoa(String.fromCharCode(...new Uint8Array(hash)));
     if (deniedCalls.has(promptDigest)) return leave('repeated');
     const verdict = await judgeCall($, settings, call);

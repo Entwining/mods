@@ -5,8 +5,8 @@ import type { EngineInterface } from 'claude-code';
 // The user's own messages and answers to the agent's questions as the plugin
 // keeps them: the first, which often sets the task, then the newest that fit,
 // each clipped to its head and tail; `leftOut` counts the messages between.
-// `addTurn` keeps a conversation in this form, so it stays bounded, and
-// `selectMessages` chooses from it what the judge reads for each call.
+// `addTurn` keeps a conversation in this form, so it stays bounded, and the
+// judge reads all of it for every call.
 export type UserMessages = { turns: readonly string[]; leftOut: number };
 
 export const NO_MESSAGES: UserMessages = { turns: [], leftOut: 0 };
@@ -17,6 +17,14 @@ export const ANSWER_PREFIX = "Answer to the agent's question: ";
 
 const TURN_CHARS = 16_000;
 const TURNS_CHARS = 64_000;
+
+// The kept messages as the judge reads them, oldest first, with a note where
+// the store let messages go.
+export function keptMessages({ turns, leftOut }: UserMessages): readonly string[] {
+  if (leftOut === 0) return turns;
+  const [first, ...rest] = turns;
+  return [first!, `[${leftOut} messages left out]`, ...rest];
+}
 
 // The head and tail of a long text, which hold a message's request and its
 // last word.

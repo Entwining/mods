@@ -9,14 +9,14 @@ import type {
   ModelCompleteRequest,
   ModelCompleteResult,
   ModelEffort,
+  ModelTextBlock,
   ModelUsage,
 } from 'claude-code';
 
 import { gatherFacts, type FactRequest } from './facts.ts';
 import { JUDGE_SYSTEM } from './policy.ts';
 import { parseVerdict, type Reply } from './verdict.ts';
-import { selectMessages } from './select.ts';
-import { clip, userMessages, type UserMessages } from './messages.ts';
+import { clip, keptMessages, userMessages, type UserMessages } from './messages.ts';
 
 export type JudgeCase = {
   tool: string;
@@ -73,10 +73,18 @@ const RETRY_DELAY_MS = 2000;
 // limits, and the server's own failures.
 const TRANSIENT = new Set<ModelApiError>(['rate_limit', 'overloaded', 'server_error']);
 
-export function judgePrompt(call: JudgeCase): string {
-  return JSON.stringify(
+// One JSON document in two blocks. The user's kept words open it, marked for
+// the cache: they stay the same until the user writes again, so later calls
+// and the round after a check read them from the cache, and so does the
+// policy on Bedrock, Vertex, Foundry, or behind a gateway, where a mark in
+// `system` is found only while the prompt opens the same way. The call's
+// fields follow. Joined, the blocks are the document, so text inside a
+// message cannot pose as another field.
+export function judgePrompt(call: JudgeCase): ModelTextBlock[] {
+  const words = { user_messages: keptMessages(call.messages) };
+  const document = JSON.stringify(
     {
-      user_messages: selectMessages(call.messages, `${call.tool} ${JSON.stringify(call.input)}`),
+      ...words,
       ...(call.brief === undefined ? {} : { subagent_brief: clip(call.brief, BRIEF_CHARS) }),
       cwd: call.cwd,
       tool: call.tool,
@@ -86,6 +94,9 @@ export function judgePrompt(call: JudgeCase): string {
     null,
     2,
   );
+  // The words' document without its closing `\n}`, where the rest goes on.
+  const head = JSON.stringify(words, null, 2).slice(0, -2);
+  return [{ text: head, cache: true }, { text: document.slice(head.length) }];
 }
 
 type Run = { deadline: number; usage: ModelUsage[]; retried: string[] };
@@ -105,8 +116,6 @@ async function ask(
     let result: ModelCompleteResult;
     try {
       result = await host.complete({
-        // Only the policy is marked: the words are chosen per call, so a mark
-        // on the prompt would pay for cache writes that later calls rarely read.
         system: [{ text: JUDGE_SYSTEM, cache: true }],
         prompt,
         timeoutMs,
