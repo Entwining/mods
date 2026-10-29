@@ -6,6 +6,7 @@
 - A call auto mode denied, made again with the same input before you write again, goes to the classifier instead of the judge, which could allow it on the second try. The log records it as `repeated`.
 - The judge reads all your kept messages, up to 64,000 characters, for every call, instead of up to 24,000 characters chosen for each call by wording and by the words they share with it, which could leave out a prohibition phrased without the words selection looked for. Your messages open the judge's prompt and are marked for the prompt cache with its instructions, so calls until you write again read both from the cache, also on Bedrock, Vertex, Foundry, or behind a gateway.
 - When the judge checks a ref with commits no other ref holds, it is also told how many of them have an equivalent patch in the branch the ref follows or in a remote's default branch, as when a pull request was merged by rebase, so deleting a branch whose work is already merged need not go to the classifier.
+- Text that names a private key's format without the key, such as the header of a PEM or PuTTY key file, an age key's prefix, or the fixed start of a short-lived Amazon Bedrock key, is no longer withheld; the key's body has to be there. Reading the plugin's own source was withheld for this.
 - Each `judged` line in the log says in `isAnswered` whether the judge's model answered and, when it did not, why in `failure`, instead of inside `reason`; `retried` lists the failures a call was made again after.
 
 ## 0.0.8 - 2026-10-22

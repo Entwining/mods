@@ -14,11 +14,12 @@ const OUT = new URL('../plugins/preallow/hooks/gitleaks.generated.ts', import.me
 // against milliseconds without it.
 const IDENTIFIER = String.raw`[\w.-]{0,50}?`;
 
-// Rules that flag ordinary code: `generic-api-key`, and
-// `hashicorp-tf-password` outside the Terraform files gitleaks applies it to,
-// match labels such as `PASSWORD = "password_missing"`. preallow's own shapes
-// cover a value under a credential's name.
-const LEFT_OUT = new Set(['generic-api-key', 'hashicorp-tf-password']);
+// Rules that flag text holding no secret, which preallow's own shapes cover
+// with a value required: `generic-api-key`, and `hashicorp-tf-password`
+// outside the Terraform files gitleaks applies it to, match labels such as
+// `PASSWORD = "password_missing"`, and `private-key` takes any 64 characters
+// between a key file's markers, such as a placeholder sentence, for a key.
+const LEFT_OUT = new Set(['generic-api-key', 'hashicorp-tf-password', 'private-key']);
 
 // How gitleaks ends a provider token, consuming the character after it since
 // Go's engine has no lookahead. That misses a token followed by a full stop,
@@ -26,6 +27,11 @@ const LEFT_OUT = new Set(['generic-api-key', 'hashicorp-tf-password']);
 // match may start with, so it becomes a lookahead for any character a token
 // cannot continue with.
 const TOKEN_END = String.raw`(?:[\x60'"\s;]|\\[nr]|$)`;
+
+// A rule whose regex is a bare literal, a token's fixed prefix, matches any
+// text that names the format, this generated file included, so it also needs
+// the characters a token goes on with.
+const TOKEN_BODY = String.raw`[\w+/=-]{16}`;
 
 const POSIX: Record<string, string> = { alnum: 'A-Za-z0-9', alpha: 'A-Za-z', digit: '0-9' };
 
@@ -131,7 +137,9 @@ const rules = config.rules
   )
   .map((rule) => ({
     id: rule.id,
-    regex: toJs(rule.regex.replaceAll(IDENTIFIER, '')).replaceAll(TOKEN_END, String.raw`(?![\w-])`),
+    regex:
+      toJs(rule.regex.replaceAll(IDENTIFIER, '')).replaceAll(TOKEN_END, String.raw`(?![\w-])`) +
+      (isLiteral(rule.regex) ? TOKEN_BODY : ''),
     keywords: (rule.keywords ?? []).map((k) => k.toLowerCase()),
     entropy: rule.entropy ?? 0,
     secretGroup: rule.secretGroup ?? 0,

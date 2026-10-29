@@ -24,11 +24,21 @@ function value(min: number, hasDots = false): string {
 // `aws_secret_access_key`.
 const SECRET_NAME = String.raw`\b[\w-]{0,40}(?:token|secret|passw(?:or)?d|credential|api[_-]?key|private[_-]?key)[\w-]{0,40}`;
 
+// A key needs its body, not only the words that name its format, so text
+// about a format, this file's included, is not taken for a key. A key's
+// newlines may be escaped, as in JSON.
 const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
+  // PEM and OpenPGP armor, then within 200 characters, past any headers, 40
+  // characters of its base64 body, counted across lines since parsers accept
+  // any width, any line ending, and blanks ending a line.
   [
     'private key',
-    /-----BEGIN [A-Z ]{0,20}PRIVATE KEY(?: BLOCK)?-----|PuTTY-User-Key-File-\d|AGE-SECRET-KEY-1/,
+    /-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]{0,200}?(?:\s|\\[rn])(?:[A-Za-z0-9+/](?:[ \t]{0,64}(?:[\r\n]|\\[rn]){1,2})?){40}/,
   ],
+  // A PuTTY key file's private part.
+  ['private key', /\bPrivate-Lines: \d{1,3}(?:\s|\\[rn]){1,4}[A-Za-z0-9+/]{40}/],
+  // An age identity: its Bech32 body.
+  ['private key', /AGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}/],
   // Providers that share the `sk-` prefix in formats gitleaks does not know.
   ['API key', /\bsk-[A-Za-z0-9_-]{20,}/],
   ['JSON web token', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],

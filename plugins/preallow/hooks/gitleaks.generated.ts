@@ -225,7 +225,7 @@ export const rules = [
   },
   {
     id: 'aws-amazon-bedrock-api-key-short-lived',
-    regex: 'bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t',
+    regex: 'bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29t[\\w+/=-]{16}',
     keywords: ['bedrock-api-key-'],
     entropy: 3,
     secretGroup: 0,
@@ -1442,15 +1442,6 @@ export const rules = [
     regex: '\\b(pnu_[a-zA-Z0-9]{36})(?![\\w-])',
     keywords: ['pnu_'],
     entropy: 2,
-    secretGroup: 0,
-    allowlists: [],
-  },
-  {
-    id: 'private-key',
-    regex:
-      '(?i:-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\\s\\S-]{64,}?KEY(?: BLOCK)?-----)',
-    keywords: ['-----begin'],
-    entropy: 0,
     secretGroup: 0,
     allowlists: [],
   },

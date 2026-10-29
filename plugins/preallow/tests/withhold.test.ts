@@ -9,12 +9,14 @@ const RANDOM = 'q7Rk2Vx9Lm4Np8Ts3Wz6Yb1Hc5';
 const FAKE_TOKEN = `sk-${RANDOM}`;
 // A value spread evenly over its alphabet, as uniform as a generated token.
 const B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const BECH32 = 'QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L';
+const DIGITS = '1234567890';
 const mixed = (n: number, alphabet = B62) =>
   Array.from({ length: n }, (_, i) => alphabet[(i * 7) % alphabet.length]).join('');
 
 describe('findSecret', () => {
   const found: Array<[string, string]> = [
-    ['private key', `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----`],
+    ['private key', `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----\n${mixed(70)}\n`],
     ['API key', `sk-ant-api03-${RANDOM}`],
     ['JSON web token', `eyJ${RANDOM}.eyJ${RANDOM}.${RANDOM}`],
     ['URL credential', `proxy=http://user:${RANDOM.slice(0, 10)}@10.0.0.1:3128`],
@@ -22,14 +24,20 @@ describe('findSecret', () => {
     ['auth header', `x-api-key: ${RANDOM}.${RANDOM}`],
     ['bearer token', `curl -H "x: Bearer ya29.${RANDOM}"`],
     ['secret assignment', `DB_PASSWORD="${RANDOM}"`],
-    ['private key', `-----BEGIN PGP ${'PRIVATE KEY'} BLOCK-----`],
+    ['private key', `-----BEGIN PGP ${'PRIVATE KEY'} BLOCK-----\nVersion: v1\n\n${mixed(64)}`],
+    ['private key', `-----BEGIN SM2 ${'PRIVATE KEY'}-----\n${mixed(64)}`],
+    ['private key', `-----BEGIN ${'PRIVATE KEY'}-----\n${`${mixed(8)}\n`.repeat(8)}`],
+    ['private key', `-----BEGIN ${'PRIVATE KEY'}-----\r${mixed(32)}\r${mixed(32)}\r`],
+    ['private key', `-----BEGIN ${'PRIVATE KEY'}-----\r\n${mixed(32)} \r\n${mixed(32)} \r\n`],
+    ['private key', `{"key": "-----BEGIN ${'PRIVATE KEY'}-----\\n${mixed(32)}\\n${mixed(32)}\\n"}`],
+    ['private key', `{"key": "-----BEGIN ${'PRIVATE KEY'}-----\\r${mixed(64)}\\r"}`],
     ['secret assignment', `aws_secret_access_key = ${RANDOM}`],
     ['secret assignment', `SERVICE_KEY=${RANDOM}`],
     ['secret assignment', `"token": "${RANDOM}.${RANDOM}"`],
     ['secret assignment', `the token is token=${RANDOM}.`],
     ['netrc password', `machine example.com login u password ${'hunter'}`],
-    ['private key', `PuTTY-User-Key-File-3: ssh-ed25519`],
-    ['private key', `AGE-SECRET-KEY-1${RANDOM.toUpperCase()}`],
+    ['private key', `Private-Lines: 1\n${mixed(48)}\nPrivate-MAC: 0`],
+    ['private key', `${'AGE-SECRET-KEY'}-1${mixed(58, BECH32)}`],
     ['webhook URL', `https://hooks.slack.com/services/T0/B0/${RANDOM}`],
     ['secret assignment', `SERVICE_KEY: ${RANDOM}`],
     ['secret assignment', `DefaultEndpointsProtocol=https;AccountKey=${RANDOM}==;`],
@@ -41,7 +49,11 @@ describe('findSecret', () => {
     ['session cookie', `Set-Cookie: PHPSESSID=${RANDOM.toLowerCase()}; Path=/`],
     ['github-pat', `key: ghp_${mixed(36)}`],
     ['aws-access-token', `AKIA${mixed(16, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')}`],
-    ['slack-bot-token', `xoxb-1234567890-1234567890${mixed(24)}`],
+    ['slack-bot-token', `xoxb-${DIGITS}-${DIGITS}${mixed(24)}`],
+    [
+      'aws-amazon-bedrock-api-key-short-lived',
+      `${'bedrock-api-key-'}YmVkcm9jay5hbWF6b25hd3MuY29t${mixed(40)}`,
+    ],
     ['stripe-access-token', `sk_live_${mixed(24)}`],
     ['curl-auth-user', `curl -u admin:${mixed(12)} https://example.com`],
     ['kubernetes-secret-yaml', `kind: Secret\ndata:\n  cert: ${mixed(24)}`],
@@ -72,6 +84,12 @@ describe('findSecret', () => {
     'session_timeout=3600',
     `considered=${RANDOM}`,
     'const PASSWORD_MISSING = "password_missing";',
+    // A format named without a key's body.
+    `-----BEGIN OPENSSH ${'PRIVATE KEY'}----- files are read by ssh-add`,
+    `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----\nPaste the base64 body of your key here, keeping its line breaks.\n-----END OPENSSH ${'PRIVATE KEY'}-----`,
+    `PuTTY-User-Key-File-3: ssh-ed25519\nPrivate-Lines: 1`,
+    `${'AGE-SECRET-KEY'}-1${'[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}'}`,
+    `${'bedrock-api-key-'}YmVkcm9jay5hbWF6b25hd3MuY29t`,
     // Too uniform for gitleaks' rule, whose entropy is taken from the value
     // alone; a known example key; a stopword, also in a rule's secret group;
     // and a Secret in the document after the data.
@@ -89,6 +107,8 @@ describe('findSecret', () => {
     ['netrc machine lines', 'machine a\n'.repeat(100_000)],
     ['secret names', 'A_KEY='.repeat(100_000)],
     ['cookie names', 'sess'.repeat(250_000)],
+    ['key armor', `-----BEGIN ${'PRIVATE KEY'}-----\n${'A\n'.repeat(39)}`.repeat(9_500)],
+    ['PuTTY private lines', `Private-Lines: 1\n${'A'.repeat(39)}\n`.repeat(17_000)],
   ] as const) {
     test(`a long run of ${name} scans in linear time`, () => {
       const start = performance.now();
