@@ -1,5 +1,5 @@
 // Writes `plugins/preallow/hooks/gitleaks.generated.ts`: the rules of a
-// gitleaks release that preallow's withholding scan applies after its own
+// gitleaks release that preallow's output scan applies after its own
 // shapes, with each regex rewritten from Go's syntax to JavaScript's. It is a
 // module, not JSON, because a hooks module may import only code.
 
@@ -31,6 +31,12 @@ const NARROWED: Record<string, { alternative: string; keyword: string }> = {
   'sourcegraph-access-token': { alternative: '|[a-fA-F0-9]{40}', keyword: 'sourcegraph' },
 };
 
+// Rules whose secret is their whole match though they hold groups: gitleaks
+// takes the first group that matched for the secret, here one header field of
+// a JWT or one segment of a UUID, and the scan redacts the secret, so their
+// groups become non-capturing.
+const WHOLE_MATCH = new Set(['jwt-base64', 'microsoft-teams-webhook']);
+
 // How gitleaks ends a provider token, consuming the character after it since
 // Go's engine has no lookahead. That misses a token followed by a full stop,
 // a comma, a bracket, a colon, or `@`, and takes the separator a following
@@ -54,8 +60,8 @@ const POSIX: Record<string, string> = { alnum: 'A-Za-z0-9', alpha: 'A-Za-z', dig
 // Go applies an inline flag such as `(?i)` to the rest of its group, across
 // alternatives; JavaScript only has the scoped form `(?i:...)`, so each one
 // opens a scoped group that is closed and reopened at every `|` and closed
-// with the enclosing group.
-function toJs(go: string): string {
+// with the enclosing group. Without `capture`, no group captures.
+function toJs(go: string, capture = true): string {
   const src = go.replaceAll('(?P<', '(?<');
   const flagGroups: string[][] = [[]];
   let out = '';
@@ -79,8 +85,13 @@ function toJs(go: string): string {
       });
       i = j;
     } else if (c === '(') {
+      const group = capture ? null : /^\((?:\?<\w+>)?(?!\?)/.exec(src.slice(i));
       const flags = /^\(\?([a-z]+)\)/.exec(src.slice(i));
-      if (flags === null) {
+      if (group !== null) {
+        flagGroups.push([]);
+        out += '(?:';
+        i += group[0].length - 1;
+      } else if (flags === null) {
         flagGroups.push([]);
         out += c;
       } else {
@@ -125,7 +136,7 @@ function allowlist(list: GoAllowlist) {
     throw new Error(`hooks/gitleaks.ts reads no allowlist condition ${list.condition}`);
   return {
     regexTarget,
-    regexes: (list.regexes ?? []).filter((r) => !isLiteral(r)).map(toJs),
+    regexes: (list.regexes ?? []).filter((r) => !isLiteral(r)).map((r) => toJs(r)),
     stopwords: list.stopwords ?? [],
   };
 }
@@ -162,7 +173,7 @@ const rules = config.rules
     return {
       id: rule.id,
       regex:
-        toJs(regex).replaceAll(TOKEN_END, String.raw`(?![\w-])`) +
+        toJs(regex, !WHOLE_MATCH.has(rule.id)).replaceAll(TOKEN_END, String.raw`(?![\w-])`) +
         (isLiteral(rule.regex) ? TOKEN_BODY : ''),
       keywords: (rule.keywords ?? [])
         .map((k) => k.toLowerCase())

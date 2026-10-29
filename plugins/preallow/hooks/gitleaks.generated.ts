@@ -1034,7 +1034,7 @@ export const rules = [
   {
     id: 'jwt-base64',
     regex:
-      '\\bZXlK(?:(?<alg>aGJHY2lPaU)|(?<apu>aGNIVWlPaU)|(?<apv>aGNIWWlPaU)|(?<aud>aGRXUWlPaU)|(?<b64>aU5qUWlP)|(?<crit>amNtbDBJanBi)|(?<cty>amRIa2lPaU)|(?<epk>bGNHc2lPbn)|(?<enc>bGJtTWlPaU)|(?<jku>cWEzVWlPaU)|(?<jwk>cWQyc2lPb)|(?<iss>cGMzTWlPaU)|(?<iv>cGRpSTZJ)|(?<kid>cmFXUWlP)|(?<key_ops>clpYbGZiM0J6SWpwY)|(?<kty>cmRIa2lPaUp)|(?<nonce>dWIyNWpaU0k2)|(?<p2c>d01tTWlP)|(?<p2s>d01uTWlPaU)|(?<ppt>d2NIUWlPaU)|(?<sub>emRXSWlPaU)|(?<svt>emRuUWlP)|(?<tag>MFlXY2lPaU)|(?<typ>MGVYQWlPaUp)|(?<url>MWNtd2l)|(?<use>MWMyVWlPaUp)|(?<ver>MlpYSWlPaU)|(?<version>MlpYSnphVzl1SWpv)|(?<x>NElqb2)|(?<x5c>NE5XTWlP)|(?<x5t>NE5YUWlPaU)|(?<x5ts256>NE5YUWpVekkxTmlJNkl)|(?<x5u>NE5YVWlPaU)|(?<zip>NmFYQWlPaU))[a-zA-Z0-9\\/\\\\_+\\-\\r\\n]{40,}={0,2}',
+      '\\bZXlK(?:(?:aGJHY2lPaU)|(?:aGNIVWlPaU)|(?:aGNIWWlPaU)|(?:aGRXUWlPaU)|(?:aU5qUWlP)|(?:amNtbDBJanBi)|(?:amRIa2lPaU)|(?:bGNHc2lPbn)|(?:bGJtTWlPaU)|(?:cWEzVWlPaU)|(?:cWQyc2lPb)|(?:cGMzTWlPaU)|(?:cGRpSTZJ)|(?:cmFXUWlP)|(?:clpYbGZiM0J6SWpwY)|(?:cmRIa2lPaUp)|(?:dWIyNWpaU0k2)|(?:d01tTWlP)|(?:d01uTWlPaU)|(?:d2NIUWlPaU)|(?:emRXSWlPaU)|(?:emRuUWlP)|(?:MFlXY2lPaU)|(?:MGVYQWlPaUp)|(?:MWNtd2l)|(?:MWMyVWlPaUp)|(?:MlpYSWlPaU)|(?:MlpYSnphVzl1SWpv)|(?:NElqb2)|(?:NE5XTWlP)|(?:NE5YUWlPaU)|(?:NE5YUWpVekkxTmlJNkl)|(?:NE5YVWlPaU)|(?:NmFYQWlPaU))[a-zA-Z0-9\\/\\\\_+\\-\\r\\n]{40,}={0,2}',
     keywords: ['zxlk'],
     entropy: 2,
     secretGroup: 0,
@@ -1252,7 +1252,7 @@ export const rules = [
   {
     id: 'microsoft-teams-webhook',
     regex:
-      'https://[a-z0-9]+\\.webhook\\.office\\.com/webhookb2/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}@[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}/IncomingWebhook/[a-z0-9]{32}/[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}',
+      'https://[a-z0-9]+\\.webhook\\.office\\.com/webhookb2/[a-z0-9]{8}-(?:[a-z0-9]{4}-){3}[a-z0-9]{12}@[a-z0-9]{8}-(?:[a-z0-9]{4}-){3}[a-z0-9]{12}/IncomingWebhook/[a-z0-9]{32}/[a-z0-9]{8}-(?:[a-z0-9]{4}-){3}[a-z0-9]{12}',
     keywords: ['webhook.office.com', 'webhookb2', 'incomingwebhook'],
     entropy: 0,
     secretGroup: 0,

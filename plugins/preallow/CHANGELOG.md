@@ -2,6 +2,9 @@
 
 ## 0.0.10 - 2026-10-29
 
+- An output holding something credential-shaped has each such value replaced with `[redacted by preallow: <kind>]`, wherever it appears in the result, instead of being withheld whole, so the agent keeps the rest of it; a note beside the result tells it what was replaced. The whole output is still withheld when the full output a large result leaves in a file holds a credential, when a note another hook adds beside the result holds one, or when the text the agent reads shows one the tool's result does not. A credential the scan does not know now reaches the agent even beside one it found. The log records `redacted` with the kinds it replaced.
+- The output scan also reads the tool's result, not only the text the agent reads, so a credential that line numbers or JSON escaping hide from its patterns, such as a password in a netrc file the agent reads with Read, is found.
+- An empty assignment such as `API_KEY=` is no longer taken for a credential whose value is the name on the next line, as in an `.env.example` file.
 - A git commit hash in an output that names Sourcegraph is no longer taken for a Sourcegraph access token; a token without the `sgp_` prefix is still found under a name such as `SRC_ACCESS_TOKEN`.
 
 ## 0.0.9 - 2026-10-29

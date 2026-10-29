@@ -25,7 +25,7 @@ describe('background handoff', () => {
     expect((await check($, 'Bash', bash('run stage'))).decision).toBe('allow');
   });
 
-  test('a credential in the initial handoff is withheld without inviting another run', async ($, on) => {
+  test("a credential the handoff's text shows and its record does not hold is withheld without inviting another run", async ($, on) => {
     const w = world(on, {
       output: `${HANDOFF}\n${FAKE_TOKEN}`,
       record: { stdout: 'ready', stderr: '', interrupted: false, backgroundTaskId: 'b1' },
@@ -59,7 +59,7 @@ describe('background handoff', () => {
         command: 'run stage',
         tool_use_id: 't1',
       } as never);
-      expect(result.deny).toMatch(/^The call was made, .* scanning it failed/);
+      expect(result.deny).toMatch(/^The call was made, .* scanning or redacting it failed/);
       expect(result.deny).toContain(
         background
           ? 'Check task "b1" before starting another run'
@@ -68,7 +68,7 @@ describe('background handoff', () => {
       expect(w.ran).toBe(1);
       expect((await w.logged(2))[1]).toMatchObject({
         event: 'withheld',
-        reason: 'scanning it failed',
+        reason: 'scanning or redacting it failed',
       });
       expect((await check($, 'Bash', bash('run stage'))).decision).toBe('ask');
     });
@@ -76,8 +76,9 @@ describe('background handoff', () => {
 
   test('a task id that holds a credential is not echoed in the recovery message', async ($, on) => {
     const w = world(on, {
-      output: FAKE_TOKEN,
-      record: { backgroundTaskId: FAKE_TOKEN },
+      output: 'Output too large, saved to /out/b1.txt',
+      record: { persistedOutputPath: '/out/b1.txt', backgroundTaskId: FAKE_TOKEN },
+      files: new Map([['/out/b1.txt', FAKE_TOKEN]]),
     });
     await auto($);
     const result = await $.tool.call({

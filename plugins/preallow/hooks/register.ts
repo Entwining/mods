@@ -5,7 +5,7 @@ import type { Modes } from '../types';
 import { judgeCase, judgePrompt } from './judge.ts';
 import { judgeCall, type JudgeSettings } from './stages.ts';
 import { loggedInput, record } from './log.ts';
-import { rerunWarning, WITHHELD, withholding } from './withhold.ts';
+import { rerunWarning, screen, WITHHELD } from './withhold.ts';
 import { ANSWER_PREFIX, remember } from './messages.ts';
 
 const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes);
@@ -58,10 +58,10 @@ export const register: Register = (on, options) => {
   };
   // Calls the plugin allowed, by tool_use_id, so their output is scanned
   // before the model reads it; calls left to the core when they run again,
-  // after their output was withheld or the engine rejected the plugin's allow;
-  // the calls the judge left to review, by tool_use_id, with a digest of the
-  // judge's first prompt, so a denial of one is logged; and the digests of
-  // those auto mode denied.
+  // after their output was redacted or withheld or the engine rejected the
+  // plugin's allow; the calls the judge left to review, by tool_use_id, with
+  // a digest of the judge's first prompt, so a denial of one is logged; and
+  // the digests of those auto mode denied.
   const allowedCalls = new Map<string, string>();
   const coreCalls = new Set<string>();
   const reviewCalls = new Map<string, string>();
@@ -194,9 +194,9 @@ export const register: Register = (on, options) => {
     return result;
   });
 
-  // A call the plugin allowed has its output withheld when it holds a
-  // credential-shaped value, since the classifier never saw the call; run
-  // again, it goes to the classifier.
+  // A call the plugin allowed has each credential-shaped value in its output
+  // redacted, or the output withheld, since the classifier never saw the
+  // call; run again, it goes to the classifier.
   on('tool.call', async ($, e, next) => {
     const result = await next(e);
     const id = e.tool_use_id;
@@ -211,28 +211,41 @@ export const register: Register = (on, options) => {
       return result;
     }
 
-    const why = await withholding($, result.text, result.result, result.context);
-    const warning = why === undefined ? undefined : rerunWarning(result.result);
     // Still listed while the scan runs, so `.catch` withholds the output if
     // the scan fails or runs out of time.
-    allowedCalls.delete(id);
-    if (why === undefined) return result;
-    record($, { event: 'withheld', tool_use_id: id, reason: why });
+    const screened = await screen($, result);
+    if (screened === undefined) {
+      allowedCalls.delete(id);
+      return result;
+    }
     coreCalls.add(key);
+    if ('redacted' in screened) {
+      record($, { event: 'redacted', tool_use_id: id, kinds: screened.kinds });
+      // A redacted result stays listed: the engine skips a hook whose answer
+      // it refuses and lets the unredacted result stand, unless `.catch`
+      // withholds it.
+      return screened.redacted;
+    }
+    allowedCalls.delete(id);
+    record($, { event: 'withheld', tool_use_id: id, reason: screened.withheld });
     // After a call that answered without error the engine already tells the
     // model that it ran and a plugin withheld its result.
     const prefix = result.isError === true ? WITHHELD : 'preallow:';
-    return { deny: `${prefix} ${why}. ${warning}` };
+    return { deny: `${prefix} ${screened.withheld}. ${rerunWarning(result.result)}` };
   }).catch(async ($, e, next) => {
-    // The tool has run: a scan that failed or ran out of time must not show
-    // the output it was scanning.
+    // The tool has run: a scan that failed or ran out of time, or a redacted
+    // result the engine refused, must not show the output it was scanning.
     const key = allowedCalls.get(e.tool_use_id);
     if (key === undefined || !next.called) return next(e);
     allowedCalls.delete(e.tool_use_id);
     coreCalls.add(key);
-    record($, { event: 'withheld', tool_use_id: e.tool_use_id, reason: 'scanning it failed' });
+    record($, {
+      event: 'withheld',
+      tool_use_id: e.tool_use_id,
+      reason: 'scanning or redacting it failed',
+    });
     // In a catch handler, next replays the settled result without running the tool again.
     const warning = rerunWarning((await next(e)).result);
-    return { deny: `${WITHHELD} scanning it failed. ${warning}` };
+    return { deny: `${WITHHELD} scanning or redacting it failed. ${warning}` };
   });
 };

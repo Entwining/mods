@@ -12,7 +12,7 @@ const compile = (list: Allowlist) => ({ ...list, regexes: list.regexes.map((r) =
 const allowlist = compile(ruleset.allowlist);
 const rules = ruleset.rules.map((rule) => ({
   ...rule,
-  regex: new RegExp(rule.regex, 'g'),
+  regex: new RegExp(rule.regex, 'dg'),
   allowlists: [allowlist, ...rule.allowlists.map(compile)],
 }));
 
@@ -25,24 +25,29 @@ function entropy(text: string): number {
   return bits;
 }
 
-// The id of the first rule that finds a secret in the text.
-export function findLeak(text: string): string | undefined {
+// A credential-shaped value's place in a text, and its kind: the name of a
+// shape in `withhold.ts`, or the id of a gitleaks rule.
+export type Finding = { kind: string; start: number; end: number };
+
+export function findLeaks(text: string): Finding[] {
   const lower = text.toLowerCase();
+  const found: Finding[] = [];
   for (const rule of rules) {
     if (!rule.keywords.some((k) => lower.includes(k))) continue;
     for (const match of text.matchAll(rule.regex)) {
       // The secret is the rule's secret group, else the first group that
       // matched, as gitleaks takes it.
-      const secret =
-        (rule.secretGroup > 0 ? match[rule.secretGroup] : match.slice(1).find(Boolean)) ?? match[0];
+      const group = rule.secretGroup > 0 ? rule.secretGroup : match.findIndex((g, i) => i > 0 && g);
+      const [start, end] = match.indices![group] ?? match.indices![0]!;
+      const secret = text.slice(start, end);
       if (rule.entropy > 0 && entropy(secret) <= rule.entropy) continue;
       const allowed = rule.allowlists.some(
         (list) =>
           list.regexes.some((r) => r.test(list.regexTarget === 'match' ? match[0] : secret)) ||
           list.stopwords.some((word) => secret.toLowerCase().includes(word)),
       );
-      if (!allowed) return rule.id;
+      if (!allowed) found.push({ kind: rule.id, start, end });
     }
   }
-  return undefined;
+  return found;
 }

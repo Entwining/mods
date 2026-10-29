@@ -192,8 +192,15 @@ export function world(on: On, partial: Partial<World> = {}): World {
   on('tool.call', async () => {
     if (w.engineRejects) return { isError: true, result: REJECTION, text: REJECTION } as never;
     w.ran++;
-    if (w.callFails) return { isError: true, result: w.output, text: w.output } as never;
-    return { result: w.record ?? w.output, text: w.output, context: w.context } as never;
+    if (w.callFails)
+      return {
+        ref: 1,
+        isError: true,
+        result: w.output,
+        text: w.output,
+        context: w.context,
+      } as never;
+    return { ref: 1, result: w.record ?? w.output, text: w.output, context: w.context } as never;
   });
   return w;
 }

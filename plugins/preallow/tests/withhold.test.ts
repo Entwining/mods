@@ -1,12 +1,9 @@
 import { describe, expect, test } from 'claude-code/testing';
 import { rules } from '../hooks/gitleaks.generated.ts';
-import { findSecret } from '../hooks/withhold.ts';
-import { auto, bash, check } from './session.ts';
-import { world } from './world.ts';
+import { findSecrets, redact } from '../hooks/withhold.ts';
 
 // Values are built at run time, so no scanner takes the source for a leak.
 const RANDOM = 'q7Rk2Vx9Lm4Np8Ts3Wz6Yb1Hc5';
-const FAKE_TOKEN = `sk-${RANDOM}`;
 const B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const BECH32 = 'QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L';
 const DIGITS = '1234567890';
@@ -16,7 +13,7 @@ const HEX = '0123456789abcdef';
 const mixed = (n: number, alphabet = B62) =>
   Array.from({ length: n }, (_, i) => alphabet[(i * 7) % alphabet.length]).join('');
 
-describe('findSecret', () => {
+describe('findSecrets', () => {
   const found: Array<[string, string]> = [
     ['private key', `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----\n${mixed(70)}\n`],
     ['API key', `sk-ant-api03-${RANDOM}`],
@@ -26,6 +23,7 @@ describe('findSecret', () => {
     ['auth header', `x-api-key: ${RANDOM}.${RANDOM}`],
     ['bearer token', `curl -H "x: Bearer ya29.${RANDOM}"`],
     ['secret assignment', `DB_PASSWORD="${RANDOM}"`],
+    ['secret assignment', `const apiKey =\n  "${RANDOM}`],
     ['private key', `-----BEGIN PGP ${'PRIVATE KEY'} BLOCK-----\nVersion: v1\n\n${mixed(64)}`],
     ['private key', `-----BEGIN SM2 ${'PRIVATE KEY'}-----\n${mixed(64)}`],
     ['private key', `-----BEGIN ${'PRIVATE KEY'}-----\n${`${mixed(8)}\n`.repeat(8)}`],
@@ -70,7 +68,7 @@ describe('findSecret', () => {
   ];
   for (const [kind, text] of found) {
     test(`${kind}: ${text}`, () => {
-      expect(findSecret(text)).toBe(kind);
+      expect(findSecrets(text)[0]?.kind).toBe(kind);
     });
   }
 
@@ -89,6 +87,8 @@ describe('findSecret', () => {
     'The default timeout applies; see the password reset guide.',
     `sessionId=${['3f2a9c4e', '7b1d', '4e8a', '9c2f', '5d6e7a8b9c0d'].join('-')}`,
     'session_timeout=3600',
+    // Empty assignments, each followed by a name of letters and digits.
+    'API_TOKEN=\nAWS_S3_REGION_2=\nSERVICE_KEY=\nS3_BUCKET_NAME_2024=\nAUTHORIZATION=\nS3_ACCESS_KEY_ID2=\n',
     `considered=${RANDOM}`,
     'const PASSWORD_MISSING = "password_missing";',
     // A hostname's dots match only dots.
@@ -118,11 +118,15 @@ describe('findSecret', () => {
     ['secret names', 'A_KEY='.repeat(100_000)],
     ['cookie names', 'sess'.repeat(250_000)],
     ['key armor', `-----BEGIN ${'PRIVATE KEY'}-----\n${'A\n'.repeat(39)}`.repeat(9_500)],
+    [
+      'key armor cut off before its end',
+      `-----BEGIN ${'PRIVATE KEY'}-----\n${'A'.repeat(40)}\n`.repeat(15_000),
+    ],
     ['PuTTY private lines', `Private-Lines: 1\n${'A'.repeat(39)}\n`.repeat(17_000)],
   ] as const) {
     test(`a long run of ${name} scans in linear time`, () => {
       const start = performance.now();
-      findSecret(run);
+      findSecrets(run);
       expect(performance.now() - start).toBeLessThan(2000);
     });
   }
@@ -132,81 +136,66 @@ describe('findSecret', () => {
     for (const run of ['.', 'a.', ' ']) {
       const unit = keywords.map((k) => `${k}${run.repeat(400)}`).join(' ');
       const start = performance.now();
-      expect(findSecret(unit.repeat(Math.ceil(1_000_000 / unit.length)))).toBeUndefined();
+      expect(findSecrets(unit.repeat(Math.ceil(1_000_000 / unit.length)))).toEqual([]);
       expect(performance.now() - start).toBeLessThan(2000);
     }
   });
 
   for (const text of clean) {
     test(`no secret: ${text}`, () => {
-      expect(findSecret(text)).toBeUndefined();
+      expect(findSecrets(text)).toEqual([]);
     });
   }
 });
 
-describe('output', () => {
-  test('a call the plugin allowed has its output withheld when it holds a credential, and runs again under the classifier', async ($, on) => {
-    const w = world(on, { output: `TOKEN=${FAKE_TOKEN}` });
-    await auto($);
-    const result = await $.tool.call({
-      tool: 'Bash',
-      command: 'cat config.json',
-      tool_use_id: 't1',
-    } as never);
-    expect(w.ran).toBe(1);
-    expect(result.deny).toContain('API key');
-    expect(result.deny).toMatch(/^preallow: it holds/);
-    expect(JSON.stringify(result)).not.toContain(FAKE_TOKEN);
-    const lines = await w.logged(2);
-    expect([lines[1]!.event, lines[1]!.reason]).toEqual([
-      'withheld',
-      'it holds what looks like a credential (API key)',
-    ]);
-    expect(JSON.stringify(lines)).not.toContain(FAKE_TOKEN);
-    expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
-    expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
+describe('redact', () => {
+  const redacted = (text: string) => redact(text, findSecrets(text));
 
-    // A failed call carries no word from the engine that it ran.
-    w.callFails = true;
-    const failed = await $.tool.call({
-      tool: 'Bash',
-      command: 'cat secret.json',
-      tool_use_id: 't3',
-    } as never);
-    expect(failed.deny).toMatch(/^The call was made, .*API key/);
+  test('each value gives way to a marker, keeping its line breaks and what surrounds it', () => {
+    const body = Array.from({ length: 3 }, (_, i) => mixed(64 - i));
+    const pem = `-----BEGIN ${'PRIVATE KEY'}-----\n${body.join('\n')}\n-----END ${'PRIVATE KEY'}-----`;
+    expect(redacted(`a\n${pem}\nTOKEN=${RANDOM} b`)).toBe(
+      `a\n[redacted by preallow: private key]${'\n'.repeat(5)}TOKEN=[redacted by preallow: secret assignment] b`,
+    );
+    const escaped = JSON.stringify({ key: pem });
+    expect(redacted(escaped)).toBe('{"key":"[redacted by preallow: private key]"}');
   });
 
-  test('output is passed on when it holds no credential, or the plugin did not allow the call', async ($, on) => {
-    const w = world(on, { output: 'version 1.2.3' });
-    await auto($);
-    const call = (id: string) =>
-      $.tool.call({ tool: 'Bash', command: 'cat config.json', tool_use_id: id } as never);
-    expect((await call('t1')).text).toBe('version 1.2.3');
-    w.output = `TOKEN=${FAKE_TOKEN}`;
-    w.core = { decision: 'allow' };
-    expect((await call('t2')).text).toContain(FAKE_TOKEN);
+  test('a key runs to its end marker, or else through its last line of base64, and no further', () => {
+    const body = `${mixed(64)}\n${mixed(20)}`;
+    expect(redacted(`-----BEGIN ${'PRIVATE KEY'}-----\n${body}\nOutput truncated.`)).toBe(
+      '[redacted by preallow: private key]\n\n\nOutput truncated.',
+    );
+    const putty = `Private-Lines: 2\n${body}\nPrivate-MAC: ${mixed(64, HEX)}`;
+    expect(redacted(putty)).toBe(
+      `[redacted by preallow: private key]\n\n\nPrivate-MAC: ${mixed(64, HEX)}`,
+    );
+    expect(redacted(`${'AGE-SECRET-KEY'}-1${mixed(58, BECH32)}\nREADME\nDone`)).toBe(
+      '[redacted by preallow: private key]\nREADME\nDone',
+    );
   });
 
-  test("output the model would read later, from a file, from a hook's own result, or beside it is scanned or withheld", async ($, on) => {
-    const w = world(on, {
-      output: 'Output too large, saved to /out/t1.txt',
-      record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
-    });
-    await auto($);
-    const call = (command: string, id: string) =>
-      $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
-    w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
-    expect((await call('cat a.log', 't1')).deny).toContain('API key');
-    w.files.set('/out/t1.txt', 'line\n'.repeat(3));
-    expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
-    w.files.delete('/out/t1.txt');
-    expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
-    w.output = undefined;
-    w.record = { stdout: `TOKEN=${FAKE_TOKEN}` };
-    expect((await call('cat e.log', 't5')).deny).toContain('API key');
-    w.output = 'ok';
-    w.record = undefined;
-    w.context = [`TOKEN=${FAKE_TOKEN}`];
-    expect((await call('cat f.log', 't6')).deny).toContain('API key');
+  test('a gitleaks rule whose groups hold parts of its token has the whole token redacted', () => {
+    const uuid = `${mixed(8, HEX)}-${'a1b2-'.repeat(3)}${mixed(12, HEX)}`;
+    const webhook = `https://example.webhook.office.com/webhookb2/${uuid}@${uuid}/IncomingWebhook/${mixed(32, HEX)}/${uuid}`;
+    expect(redacted(`url: ${webhook}`)).toBe(
+      'url: [redacted by preallow: microsoft-teams-webhook]',
+    );
+    expect(redacted(`${'ZXlKaGJHY2lPaU'}${mixed(48)} b`)).toBe(
+      '[redacted by preallow: jwt-base64] b',
+    );
+  });
+
+  test("a gitleaks rule's match keeps the name before its secret", () => {
+    expect(redacted(`OKTA = 00${mixed(40)}`)).toBe(
+      'OKTA = [redacted by preallow: okta-access-token]',
+    );
+  });
+
+  test('values that overlap give way to one marker', () => {
+    // One shape takes the value up to the dot, another the whole quoted value.
+    expect(redacted(`"token": "${RANDOM}==.${RANDOM}"`)).toBe(
+      '"token": "[redacted by preallow: secret assignment]"',
+    );
   });
 });
