@@ -2,6 +2,7 @@
 
 ## 0.0.9 - unreleased
 
+- The judge's instructions are rewritten as decisions taken in order: leaks first, then whether the call serves your task and respects what you ruled out, then work on your own repositories, then whether each effect can be undone, and last whether your words explicitly cover the irreversible ones. They describe each field the judge reads and each fact a check returns, including what a fact does not establish, such as file times saying nothing about who made a file. The wording was chosen by evaluating it against real calls.
 - A judge model call that comes back without a reply, or with an API error that may clear on its own, such as an overloaded server, is made once more two seconds later instead of sending the tool call to the classifier. The judge's 90 seconds now cover all its model calls for one tool call, retries and the call after a check included.
 - A call auto mode denied, made again with the same input before you write again, goes to the classifier instead of the judge, which could allow it on the second try. The log records it as `repeated`.
 - The judge reads all your kept messages, up to 64,000 characters, for every call, instead of up to 24,000 characters chosen for each call by wording and by the words they share with it, which could leave out a prohibition phrased without the words selection looked for. Your messages open the judge's prompt and are marked for the prompt cache with its instructions, so calls until you write again read both from the cache, also on Bedrock, Vertex, Foundry, or behind a gateway.
