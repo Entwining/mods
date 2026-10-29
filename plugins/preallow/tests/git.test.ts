@@ -3,20 +3,38 @@ import { describe, expect, test } from 'claude-code/testing';
 import { gatherFacts } from '../hooks/facts.ts';
 import { host, PREFIX } from './host.ts';
 
-const READ_ONLY = new Set(['rev-parse', 'status', 'ls-files', 'rev-list', 'for-each-ref']);
+const READ_ONLY = new Set([
+  'rev-parse',
+  'status',
+  'ls-files',
+  'rev-list',
+  'for-each-ref',
+  'cherry',
+]);
 
 describe('git', () => {
   test('only fixed read-only git queries run, offline, each with a time limit', async () => {
     const { h, runs } = host({
       'rev-parse --verify --quiet main^{commit}': { stdout: 'c0ffee\n' },
-      'rev-list --count c0ffee --not --glob=refs/*': { stdout: '3\n' },
+      'rev-list c0ffee --not --glob=refs/*': { stdout: 'c0ffee\nc0de\n5eed\n' },
+      'for-each-ref --format=%(refname) %(symref) %(upstream) refs/remotes/*/HEAD': {
+        stdout: 'refs/remotes/origin/HEAD refs/remotes/origin/main \n',
+      },
+      'for-each-ref --format=%(refname) refs/remotes/origin/main': {
+        stdout: 'refs/remotes/origin/main\n',
+      },
+      'cherry refs/remotes/origin/main c0ffee': { stdout: '- c0de\n' },
     });
     const { answers } = await gatherFacts(h, [
       { path: '--output=/w/x' },
       { path: '/w/a.txt' },
       { repo: '/w', ref: 'main' },
     ]);
-    expect(answers[2]).toMatchObject({ commit: 'c0ffee', commitsReachableOnlyFromThisRef: 3 });
+    expect(answers[2]).toMatchObject({
+      commit: 'c0ffee',
+      commitsReachableOnlyFromThisRef: 3,
+      ofThoseWithAnEquivalentPatchIn: { 'refs/remotes/origin/main': 1 },
+    });
     expect(runs.some(({ argv }) => argv.includes('/w/--output=/w/x'))).toBe(true);
     await expect(gatherFacts(h, [{ repo: '/w', ref: '--output=/w/x' }])).rejects.toThrow(
       'not a ref name',
