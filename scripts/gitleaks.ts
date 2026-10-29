@@ -33,6 +33,12 @@ const TOKEN_END = String.raw`(?:[\x60'"\s;]|\\[nr]|$)`;
 // the characters a token goes on with.
 const TOKEN_BODY = String.raw`[\w+/=-]{16}`;
 
+// The rest of a hostname written into a regex with plain dots, such as
+// `.slack.com` after `hooks`: labels up to a top-level domain from the list
+// CodeQL's `js/incomplete-hostname-regexp` checks. A plain dot there also
+// matches any character, so each one is escaped.
+const HOSTNAME_REST = /^\.(?:[a-z0-9-]+\.)*(?:com|org|edu|gov|uk|net|io)(?![a-z0-9])/i;
+
 const POSIX: Record<string, string> = { alnum: 'A-Za-z0-9', alpha: 'A-Za-z', digit: '0-9' };
 
 // Go applies an inline flag such as `(?i)` to the rest of its group, across
@@ -74,6 +80,8 @@ function toJs(go: string): string {
       }
     } else if (c === ')') {
       out += ')'.repeat(flagGroups.pop()!.length + 1);
+    } else if (c === '.' && /[a-z0-9-]$/i.test(out) && HOSTNAME_REST.test(src.slice(i))) {
+      out += '\\.';
     } else if (c === '|') {
       const open = flagGroups.at(-1)!;
       out += `${')'.repeat(open.length)}|${open.map((f) => `(?${f}:`).join('')}`;

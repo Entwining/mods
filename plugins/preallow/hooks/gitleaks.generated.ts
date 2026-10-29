@@ -1639,7 +1639,7 @@ export const rules = [
   {
     id: 'sidekiq-sensitive-url',
     regex:
-      '(?i:\\bhttps?://([a-f0-9]{8}:[a-f0-9]{8})@(?:gems.contribsys.com|enterprise.contribsys.com)(?:[\\/|\\#|\\?|:]|$))',
+      '(?i:\\bhttps?://([a-f0-9]{8}:[a-f0-9]{8})@(?:gems\\.contribsys\\.com|enterprise\\.contribsys\\.com)(?:[\\/|\\#|\\?|:]|$))',
     keywords: ['gems.contribsys.com', 'enterprise.contribsys.com'],
     entropy: 0,
     secretGroup: 0,
@@ -1711,7 +1711,7 @@ export const rules = [
   },
   {
     id: 'slack-webhook-url',
-    regex: '(?:https?://)?hooks.slack.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}',
+    regex: '(?:https?://)?hooks\\.slack\\.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}',
     keywords: ['hooks.slack.com'],
     entropy: 0,
     secretGroup: 0,

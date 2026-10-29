@@ -50,6 +50,7 @@ describe('findSecret', () => {
     ['github-pat', `key: ghp_${mixed(36)}`],
     ['aws-access-token', `AKIA${mixed(16, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')}`],
     ['slack-bot-token', `xoxb-${DIGITS}-${DIGITS}${mixed(24)}`],
+    ['slack-webhook-url', `https://hooks.slack.com/triggers/${mixed(44)}`],
     [
       'aws-amazon-bedrock-api-key-short-lived',
       `${'bedrock-api-key-'}YmVkcm9jay5hbWF6b25hd3MuY29t${mixed(40)}`,
@@ -84,6 +85,8 @@ describe('findSecret', () => {
     'session_timeout=3600',
     `considered=${RANDOM}`,
     'const PASSWORD_MISSING = "password_missing";',
+    // A hostname's dots match only dots.
+    `see hooks.slack.com: https://hooksXslackYcom/triggers/${mixed(44)}`,
     // A format named without a key's body.
     `-----BEGIN OPENSSH ${'PRIVATE KEY'}----- files are read by ssh-add`,
     `-----BEGIN OPENSSH ${'PRIVATE KEY'}-----\nPaste the base64 body of your key here, keeping its line breaks.\n-----END OPENSSH ${'PRIVATE KEY'}-----`,
