@@ -37,10 +37,10 @@ export function host(
     ],
     '/w/build/cache': [{ name: 'notes.txt', kind: 'file', mtimeMs: BEFORE }],
     '/s': [{ name: 'a', kind: 'file', mtimeMs: AFTER }],
-    // Subfolders first, then files: more entries than the walk reads.
+    // Only files, more than the walk reads, so no folder is left unread.
     '/big': Array.from({ length: 1500 }, (_, i) => ({
       name: `${i}`,
-      kind: i < 10 ? 'dir' : 'file',
+      kind: 'file',
       mtimeMs: AFTER,
     })),
     // Exactly as many entries as the walk reads, with a folder left unread.

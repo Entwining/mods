@@ -37,6 +37,16 @@ Everything else is allowed, including commands outside the sandbox, loosening pe
 - A call auto mode denied after the judge left it to review, when the agent makes it again with the same input, in the same directory and, for a subagent, with the same brief, before you write again. Judging it again could only repeat the review or undo the denial with nothing new from you; once you have written, the call is judged again with your new words.
 - A tool whose verdict the engine keeps whatever a hook answers: a subagent's report to its parent (`SubagentHandback`), which only the classifier may allow, and a question to you or a plan for your approval (`AskUserQuestion`, `ExitPlanMode`), which wait for you. The judge is not asked, since its allow would be rejected or ignored.
 
+## Output it redacts
+
+The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including a result another plugin's hook gave in the tool's place, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin replaces each such value with `[redacted by preallow: <kind>]`, wherever in the result the same value appears, and tells the agent beside the result. It scans the tool's result as well as the text the agent reads, to find a credential that line numbers or JSON escaping hide in that text. A failed call's error text is redacted the same way.
+
+The scan covers only calls the plugin allowed in the classifier's place, not those Claude Code allowed on its own or the classifier allowed, and it finds what is shaped like a credential: finding nothing does not show that the output holds no secret.
+
+The plugin withholds the whole output instead when it cannot redact it: when the full output a large result leaves in a file holds a credential or cannot be read to scan, since the agent can read that file later; when a note a hook adds beside the result holds one, since a hook cannot change another's notes; when the text the agent reads shows a credential that the tool's result, from which Claude Code renders that text, does not hold; and when the scan fails or runs out of time, or Claude Code refuses the redacted result.
+
+The call has already been made, and redacting or withholding its output does not undo it: the agent is warned that running it again repeats its effects, and the same call run again goes to the classifier. A call that moves to the background has its hand-off scanned in the same way, including the output returned before the move; a withheld hand-off warns that withholding did not stop the task, and gives its scanned task ID to follow, or asks you to inspect `/tasks` when that ID cannot be read safely.
+
 ## Settings
 
 Set them in `/config` or when you install; an emptied field counts as unset.
@@ -72,17 +82,27 @@ Patches are compared one commit at a time, so commits squashed into one when mer
 
 Each judge runs through your session's own model client: one model call per tool call, and one more after a check. A model call that comes back without a reply, or with an API error Claude Code says may clear on its own (overload, a rate limit, or a server error), is made once more two seconds later while the judge has time; one cut short or refused for what it asked is not. A judge has 90 seconds for a tool call, counting all its model calls, waits, and checks.
 
-The verdict is the JSON object that ends the judge's reply: text may come before it, and only a closing code fence after it. A reply that does not end with a verdict or that states different verdicts along the way, a call the judge does not answer in time, and anything other than `allow` are not allowed, and go to the second judge if there is one, or else to the classifier.
+A judge allows a call only when its reply ends with an `allow` verdict. A reply that does not end with a verdict or that states different verdicts along the way, a call the judge does not answer in time, and any other verdict go to the second judge if there is one, or else to the classifier.
 
 The policy and your kept messages open every judge's prompt and are marked for the prompt cache, so a call soon after another, and the call after a check, can read them from the cache until you write again; the `usage` in each `judged` line shows what was read and written.
 
-## Output it redacts
+On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with your kept messages, so after each message you write the judge's next call writes its instructions to the cache again along with your messages.
 
-The judge decides before the call runs and cannot see what it will print. When what the model would read from a call the plugin allowed, including a result another plugin's hook gave in the tool's place, holds what looks like a credential (a private key, a token in a provider format that [gitleaks](https://github.com/gitleaks/gitleaks) knows or one starting `sk-`, a JSON web token, a netrc or registry login, a session cookie, or a password or token in a URL, header, or assignment), the plugin replaces each such value with `[redacted by preallow: <kind>]`, wherever in the result the same value appears, and tells the agent beside the result. It scans the tool's result as well as the text the agent reads, so line numbers in a file the agent reads do not hide a credential from it. A failed call's error text is redacted the same way.
+## Known gaps
 
-The plugin withholds the whole output instead when it cannot redact it: when the full output a large result leaves in a file holds a credential, since the agent can read that file later; when a note a hook adds beside the result holds one, since a hook cannot change another's notes; when the text the agent reads shows a credential that the tool's result, from which Claude Code renders that text, does not hold; and when the scan fails or runs out of time, or Claude Code refuses the redacted result.
-
-The call has already been made, and redacting or withholding its output does not undo it: the agent is warned that running it again repeats its effects, and the same call run again goes to the classifier. A call that moves to the background has its hand-off scanned in the same way, including the output returned before the move; a withheld hand-off warns that withholding did not stop the task, and gives its scanned task ID to follow, or asks you to inspect `/tasks` when that ID cannot be read safely.
+- A long conversation can lose a prohibition through the storage limit described in [What the judge reads](#what-the-judge-reads): past 64,000 characters the plugin keeps your first message and the newest that fit, and cuts a message over 16,000 characters to its head and tail. Repeat an important prohibition in a short message when it matters.
+- A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
+- `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
+- A call that only reads, such as printing a log, listing processes, showing proxy variables, or capturing a terminal pane, does not show that its output will hold a secret, and the judge decides before the call runs, so it may allow one that prints a secret; keeping the secret out of the conversation is then left to the [output scan](#output-it-redacts), with the limits below.
+- The credential scan knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules). A credential in any other format, such as a password of letters only, or a value under a name the list does not know, slips through, even in an output where the scan redacted another.
+- Some values in known formats slip through too: a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one.
+- An output can change a known format's shape: JSON escaping can hide a quoted password's shape, and long headers before a private key's body, a body wrapped narrow with indented or blank lines, or line numbers in an output cut off before the key's end can let part or all of a key through.
+- Some text that is not a credential is taken for one, such as prose or a test name that puts a word like `secret` or `token` before a colon and a run of letters and digits, or a placeholder inside a private key's armor; a key cut off before its end marker can also take the text up to another key's end marker. What is taken is redacted wherever its text appears, even inside a longer word, or withholds the whole output where it cannot be redacted, and the same call run again goes to the classifier.
+- A private key wrapped narrower than 16 characters a line, in a result another plugin's hook gave in the tool's place, is withheld instead of redacted.
+- A large result whose full output in its file passes 4 MiB is withheld, since the plugin cannot read a file that large to scan it.
+- For a call moved to the background while it runs, the plugin scans only the hand-off. Output delivered later, including task notifications, is outside that scan; a later read is scanned only if the plugin allows that call.
+- A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not scan those events.
+- A call the plugin allowed runs again under the classifier after a redacted or withheld output only when its input is the same; a rerun with any input change is judged again.
 
 ## Reading the log
 
@@ -101,7 +121,7 @@ The events; all but `rejected`, `denied`, `redacted`, and `withheld` also give w
 - `rejected`: the engine rejected the plugin's allow of a call because only the classifier may allow that tool, with the start of its message in `reason`. The call failed, and the same call run again goes to the classifier; that tool belongs with the reserved ones, so report it.
 - `denied`: auto mode denied a call the judge left to review, with the start of its reason in `reason`; auto mode can deny without a classifier verdict. The matching `judged` line says why the judge did not allow it.
 - `redacted`: the plugin redacted the output of a call it allowed, with the kinds of value it replaced in `kinds` (never the values).
-- `withheld`: the plugin withheld the output of a call it allowed, and why in `reason` (never the output).
+- `withheld`: the plugin withheld the output of a call it allowed, and why in `reason` (never the output): a credential-shaped value in the full output a large result left in a file, in a hook's note beside the result, or in the text the agent reads but not in the tool's result; a full-output file it could not read; or `scanning or redacting it failed`, for a scan that failed or ran out of time or a redacted result Claude Code refused, which the log does not tell apart.
 
 A judge's fields in a `judged` line:
 
@@ -112,21 +132,6 @@ A judge's fields in a `judged` line:
 - `checks`: what it asked to check, listed even when the checks could not run; and `facts`, what they found.
 - `ms`, how long it took, and the `model` and `effort` settings it ran on.
 - `usage`: what each model call cost, one entry per call with the four token counts the API reports; `input_tokens` counts only the input neither read from nor written to the cache.
-
-## Known gaps
-
-- A long conversation can lose a prohibition through the storage limit described in [What the judge reads](#what-the-judge-reads): past 64,000 characters the plugin keeps your first message and the newest that fit, and cuts a message over 16,000 characters to its head and tail. Repeat an important prohibition in a short message when it matters.
-- On Bedrock, Vertex, Foundry, or behind a gateway, Claude Code finds cached text again only while the prompt opens the same way, and the judge's prompt opens with your kept messages, so after each message you write the judge's next call writes its instructions to the cache again along with your messages.
-- A conversation forked into a new session, or one you last wrote in before the 50 most recent, starts with none of your earlier messages, so the judge may allow a call your earlier words ruled out.
-- `/rewind` does not take your messages back from the judge: the plugin learns of no rewind, so a request you rewound still counts as yours. To withdraw one, say so in a new message.
-- A call that only reads, such as printing a log, listing processes, showing proxy variables, or capturing a terminal pane, does not show that its output will hold a secret, so the judge allows it as it would any read; keeping the secret out of the conversation is left to the [output scan](#output-it-redacts), with the limits below.
-- The credential scan knows a fixed list of formats (`hooks/withhold.ts` and gitleaks' provider rules); a credential in any other format, such as a password of letters only, or a value under a name the list does not know, slips through, even in an output where the scan redacted another, and so do a token holding the word `false`, which gitleaks' allowlist reads as a boolean, and a value in a Kubernetes Secret that follows an empty one. JSON escaping can also hide a quoted password's shape. A private key slips through when more than about 200 characters of headers come before its body, or when a body wrapped narrower than 40 characters has indented or blank lines. A key whose lines start with something else, such as line numbers, keeps its lines after the first when no end marker follows within about 10,000 characters, as when its output was cut off.
-- Some text that is not a credential is taken for one, such as a private key's armor around 40 or more letters and digits that are not its body, a placeholder spread over lines for example, or the output between a key cut off before its end marker and another key's end marker within about 10,000 characters; it is redacted wherever its text appears, even inside a longer word, and the same call run again goes to the classifier.
-- A private key wrapped narrower than 16 characters a line, in a result another plugin's hook gave in the tool's place, is withheld instead of redacted.
-- A large result whose full output in its file passes 4 MiB is withheld, since the plugin cannot read a file that large to scan it.
-- For a call moved to the background while it runs, the plugin scans only the hand-off. Output delivered later, including task notifications, is outside that scan; a later read is scanned only if the plugin allows that call.
-- A `Monitor` call starts a watch whose events reach the model later, one line at a time; the judge may allow it, and the plugin does not scan those events.
-- A call the plugin allowed runs again under the classifier after a redacted or withheld output only when its input is the same; a rerun with any input change is judged again.
 
 ## License
 

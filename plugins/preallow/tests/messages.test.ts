@@ -27,7 +27,7 @@ describe('what the judge reads', () => {
     });
   });
 
-  test('a subagent call carries the brief its parent gave it', async ($, on) => {
+  test('a subagent call carries the brief its parent gave it, and none when the engine cannot give its messages', async ($, on) => {
     const w = world(on, {
       agents: {
         a1: [
@@ -90,7 +90,7 @@ describe('what the judge reads', () => {
     expect(turnsOf(w)).toEqual(['earlier', 'later']);
   });
 
-  test('the judge reads the words as they were before a message being written, or after it', async ($, on) => {
+  test('a judge reading while a message is being written reads the words before it, never none', async ($, on) => {
     const w = world(on, { store: new Map([['turns:s1', kept(0, 'do not push')]]) });
     await auto($);
     let release = () => {};

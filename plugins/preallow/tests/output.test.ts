@@ -12,7 +12,7 @@ const KEY = [
 ];
 
 describe('output', () => {
-  test('a call the plugin allowed has each credential in its output redacted, and runs again under the classifier', async ($, on) => {
+  test("a call the plugin allowed has each credential in its output or its error's text redacted, and runs again under the classifier", async ($, on) => {
     const w = world(on, {
       output: `ok\nTOKEN=${FAKE_TOKEN}`,
       record: { stdout: `ok\nTOKEN=${FAKE_TOKEN}`, stderr: '', interrupted: false },
@@ -101,7 +101,7 @@ describe('output', () => {
     );
   });
 
-  test('a credential that line numbers hide from the shapes in the text is redacted in the record, with its copies', async ($, on) => {
+  test("a credential that line numbers hide from the shapes in the text is redacted in the record with its copies, or withheld when a hook's note holds one", async ($, on) => {
     const numbered = (content: string) =>
       content
         .split('\n')
@@ -123,7 +123,9 @@ describe('output', () => {
       file: { content: `machine example.com login u password ${marker}` },
     });
     w.context = [`retried with ${RANDOM}`];
-    expect((await read('t2')).deny).toMatch(/^preallow: it holds .*netrc password/);
+    expect((await read('t2')).deny).toMatch(
+      /^preallow: a hook's note beside it holds .*netrc password/,
+    );
     w.context = undefined;
 
     // A key wrapped too narrow to give a line its own run of the body.
@@ -158,7 +160,9 @@ describe('output', () => {
     const call = (command: string, id: string) =>
       $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
     w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
-    expect((await call('cat a.log', 't1')).deny).toContain('API key');
+    expect((await call('cat a.log', 't1')).deny).toMatch(
+      /^preallow: its full output in a file holds .*API key/,
+    );
     w.files.set('/out/t1.txt', 'line\n'.repeat(3));
     expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
     w.files.delete('/out/t1.txt');
@@ -170,14 +174,18 @@ describe('output', () => {
     });
     // A key wrapped too narrow to give a line its own run of the body.
     w.output = `-----BEGIN ${'PRIVATE KEY'}-----\n${'q7Rk2Vx9\n'.repeat(8)}`;
-    expect((await call('cat k.log', 't9')).deny).toMatch(/^preallow: it holds .*private key/);
+    expect((await call('cat k.log', 't9')).deny).toMatch(/^preallow: its text shows .*private key/);
     w.output = `password=${RANDOM}`;
     w.record = undefined;
     w.context = [`retried with ${RANDOM}`];
-    expect((await call('cat f.log', 't6')).deny).toMatch(/^preallow: it holds .*secret assignment/);
+    expect((await call('cat f.log', 't6')).deny).toMatch(
+      /^preallow: a hook's note beside it holds .*secret assignment/,
+    );
     w.output = 'ok';
     w.context = [`TOKEN=${FAKE_TOKEN}`];
-    expect((await call('cat g.log', 't7')).deny).toMatch(/^preallow: it holds .*API key/);
+    expect((await call('cat g.log', 't7')).deny).toMatch(
+      /^preallow: a hook's note beside it holds .*API key/,
+    );
     // A failed call carries no word from the engine that it ran.
     w.callFails = true;
     expect((await call('cat h.log', 't8')).deny).toMatch(/^The call was made, .*API key/);

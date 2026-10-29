@@ -4,7 +4,7 @@ import { auto, bash, check, promptOf, say } from './session.ts';
 import { ALLOW, REVIEW, usageOf, world } from './world.ts';
 
 describe('tool.check', () => {
-  test('a call the judge allows runs without the classifier', async ($, on) => {
+  test('a call the judge allows runs without the classifier, and one it leaves to review goes to it', async ($, on) => {
     const w = world(on);
     await auto($);
     await say($, 'set up the build');

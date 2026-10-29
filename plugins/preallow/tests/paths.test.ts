@@ -31,7 +31,7 @@ describe('gatherFacts', () => {
     });
   });
 
-  test('a missing path, and one outside any work tree', async () => {
+  test('a missing path, one outside any work tree, and a home path without HOME', async () => {
     const { h } = host();
     const { answers } = await gatherFacts(h, [{ path: '~/gone' }, { path: '/s' }]);
     expect(answers[0]).toEqual({ path: '/home/u/gone', exists: false });
@@ -57,7 +57,7 @@ describe('gatherFacts', () => {
   test('a large directory is walked only up to a bound', async () => {
     const { h, listed } = host();
     const { answers } = await gatherFacts(h, [{ path: '/big' }, { path: '/full' }]);
-    expect(answers[0]).toMatchObject({ files: 990, walkStoppedAfterEntries: 1000 });
+    expect(answers[0]).toMatchObject({ files: 1000, walkStoppedAfterEntries: 1000 });
     expect(answers[1]).toMatchObject({ files: 999, walkStoppedAfterEntries: 1000 });
     expect(listed).toEqual(['/big', '/full']);
   });

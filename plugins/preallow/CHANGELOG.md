@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.11 - 2026-10-29
+
+- A withheld output's reason, which the agent reads and the log records in `reason`, tells apart a credential-shaped value in the full output a large result leaves in a file, in a note a hook added beside the result, and in the text the agent reads but not in the tool's result. All three gave the same reason before.
+- The README describes the output scan's reach beside what it redacts, and its known gaps by what you may meet: a credential in a format the scan does not know or reshaped by the output, and prose or a test name with a word like `secret` before a colon taken for one. What the scan finds is unchanged.
+
 ## 0.0.10 - 2026-10-29
 
 - An output holding something credential-shaped has each such value replaced with `[redacted by preallow: <kind>]`, wherever it appears in the result, instead of being withheld whole, so the agent keeps the rest of it; a note beside the result tells it what was replaced. The whole output is still withheld when the full output a large result leaves in a file holds a credential, when a note another hook adds beside the result holds one, or when the text the agent reads shows one the tool's result does not. A credential the scan does not know now reaches the agent even beside one it found. The log records `redacted` with the kinds it replaced.

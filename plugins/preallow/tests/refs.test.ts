@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 
 import { gatherFacts } from '../hooks/facts.ts';
-import { AFTER, host } from './host.ts';
+import { AFTER, BEFORE, host } from './host.ts';
 
 // How the facts ask git for a ref's upstream and the remotes' default
 // branches.
@@ -55,9 +55,9 @@ describe('gatherFacts', () => {
           unknown
         >
       ).remoteRefsAsOfLastFetch;
-    files.delete('/w/.git/FETCH_HEAD');
-    expect(await lastFetch()).toBe(new Date(AFTER).toISOString());
     files.delete('/w/.git/worktrees/wt1/FETCH_HEAD');
+    expect(await lastFetch()).toBe(new Date(BEFORE).toISOString());
+    files.delete('/w/.git/FETCH_HEAD');
     expect(await lastFetch()).toBe('no fetch recorded');
   });
 
@@ -109,8 +109,9 @@ describe('gatherFacts', () => {
           'refs/remotes/fork/trunk': 1,
         },
       },
-      { commitsReachableOnlyFromThisRef: 1, ofThoseWithAnEquivalentPatchIn: {} },
+      { commitsReachableOnlyFromThisRef: 1 },
     ]);
+    expect(answers[1]).toHaveProperty('ofThoseWithAnEquivalentPatchIn', {});
     expect(runs.filter(({ argv }) => argv.includes('cherry'))).toHaveLength(2);
   });
 

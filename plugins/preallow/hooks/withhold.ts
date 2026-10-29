@@ -169,8 +169,6 @@ const mapStrings = (value: unknown, change: (text: string) => string): unknown =
           )
         : value;
 
-const holds = (kind: string) => `it holds what looks like a credential (${kind})`;
-
 // Every place a found value appears in the text, as a copy the shapes do not
 // find beside it is the same credential.
 function copies(text: string, values: ReadonlyMap<string, string>): Finding[] {
@@ -210,7 +208,10 @@ export async function screen(
       return { withheld: 'its full output could not be read to scan it' };
     }
     const [first] = findSecrets(saved);
-    if (first !== undefined) return { withheld: holds(first.kind) };
+    if (first !== undefined)
+      return {
+        withheld: `its full output in a file holds what looks like a credential (${first.kind})`,
+      };
   }
 
   const text = answer.text ?? JSON.stringify(answer.result) ?? '';
@@ -247,7 +248,10 @@ export async function screen(
   // Core keeps whole the context a hook below attached.
   for (const entry of answer.context ?? []) {
     const [first] = [...findSecrets(entry), ...copies(entry, values)];
-    if (first !== undefined) return { withheld: holds(first.kind) };
+    if (first !== undefined)
+      return {
+        withheld: `a hook's note beside it holds what looks like a credential (${first.kind})`,
+      };
   }
 
   // An error's text is all the model reads of it.
@@ -270,7 +274,10 @@ export async function screen(
   // The core renders its text from the record, so a value only the text holds
   // cannot be redacted from it.
   for (const [value, kind] of values)
-    if (!leaves.some((leaf) => leaf.includes(value))) return { withheld: holds(kind) };
+    if (!leaves.some((leaf) => leaf.includes(value)))
+      return {
+        withheld: `its text shows what looks like a credential (${kind}) that its result does not hold`,
+      };
   if (kinds.size === 0) return undefined;
 
   return {

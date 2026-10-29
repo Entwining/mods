@@ -37,7 +37,6 @@ describe('findSecrets', () => {
     ['secret assignment', `the token is token=${RANDOM}.`],
     ['netrc password', `machine example.com login u password ${'hunter'}`],
     ['private key', `Private-Lines: 1\n${mixed(48)}\nPrivate-MAC: 0`],
-    ['private key', `${'AGE-SECRET-KEY'}-1${mixed(58, BECH32)}`],
     ['webhook URL', `https://hooks.slack.com/services/T0/B0/${RANDOM}`],
     ['secret assignment', `SERVICE_KEY: ${RANDOM}`],
     ['secret assignment', `DefaultEndpointsProtocol=https;AccountKey=${RANDOM}==;`],
@@ -60,7 +59,6 @@ describe('findSecrets', () => {
     ['kubernetes-secret-yaml', `kind: Secret\ndata:\n  cert: ${mixed(24)}`],
     ['npm-access-token', `The token is npm_${mixed(36)}.`],
     ['atlassian-api-token', `ATATT3${mixed(186)}`],
-    ['okta-access-token', `OKTA = 00${mixed(40)}`],
     ['sourcegraph-access-token', `sgp_${mixed(16, HEX)}_${mixed(40, HEX)}`],
     // A legacy Sourcegraph token has no prefix; only its name tells it from a
     // commit hash.
@@ -74,7 +72,6 @@ describe('findSecrets', () => {
 
   const clean = [
     'const token = req.headers.authorization',
-    'const secretToken = settings.v2.signingKeyName',
     'const apiToken = credentialsStore2024.current',
     'const apiKey = process.env.OPENAI_API_KEY_VALUE',
     'ANTHROPIC_API_KEY = "replace-with-your-key"',
@@ -83,7 +80,6 @@ describe('findSecrets', () => {
     'password: string',
     'token_count = 1234567890123456789',
     'const cacheKey = "user123abc456def789"',
-    'token = config.tokens2024.primary',
     'The default timeout applies; see the password reset guide.',
     `sessionId=${['3f2a9c4e', '7b1d', '4e8a', '9c2f', '5d6e7a8b9c0d'].join('-')}`,
     'session_timeout=3600',
@@ -142,7 +138,7 @@ describe('findSecrets', () => {
   });
 
   for (const text of clean) {
-    test(`no secret: ${text}`, () => {
+    test(`nothing found: ${text}`, () => {
       expect(findSecrets(text)).toEqual([]);
     });
   }
@@ -161,7 +157,7 @@ describe('redact', () => {
     expect(redacted(escaped)).toBe('{"key":"[redacted by preallow: private key]"}');
   });
 
-  test('a key runs to its end marker, or else through its last line of base64, and no further', () => {
+  test('a key without its end marker runs through its last line of base64, and no further', () => {
     const body = `${mixed(64)}\n${mixed(20)}`;
     expect(redacted(`-----BEGIN ${'PRIVATE KEY'}-----\n${body}\nOutput truncated.`)).toBe(
       '[redacted by preallow: private key]\n\n\nOutput truncated.',

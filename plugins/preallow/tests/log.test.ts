@@ -43,7 +43,7 @@ describe('the log', () => {
     ]);
   });
 
-  test('a call the judge left to review and auto mode denied is logged', async ($, on) => {
+  test('a call the judge left to review and auto mode denied is logged as denied, and a denied call it never judged is not', async ($, on) => {
     const w = world(on, { reply: REVIEW });
     await auto($);
     const denied = async (id: string, input: Record<string, unknown> = bash('make')) => {
@@ -117,6 +117,7 @@ describe('the log', () => {
     const w = world(on, { env: {} });
     await auto($);
     await check($, 'Bash', bash('make'));
+    // Lines are written after the call returns; the second call waits out the first's.
     await check($, 'Bash', bash('make b'), { tool_use_id: 't2' });
     expect([...w.files.keys()]).toEqual([]);
   });
