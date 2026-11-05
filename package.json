@@ -15,7 +15,7 @@
     "gitleaks": "bun scripts/gitleaks.ts && oxfmt plugins/preallow/hooks/gitleaks.generated.ts"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.316",
+    "@anthropic-ai/claude-code": "2.1.318",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
     "typescript": "7.0.2"
