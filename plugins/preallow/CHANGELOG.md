@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.12 - 2026-11-19
+
+- When a large result leaves its full output in a file and that file holds something credential-shaped, the plugin redacts the file in place, and each value found there wherever the result shows it, instead of withholding the whole output. A full listing of processes, one of which carries a token in its arguments, was the usual output lost this way. The output is still withheld when the file cannot be read or rewritten, or is not in the session's own `tool-results` folder. A `redacted` line in the log says in `inSavedOutput` whether the file was redacted.
+- Each of a judge's model calls has at most 45 of the judge's 90 seconds, and one that runs them out is made once more, like one that comes back without a reply. A first judge whose call hung used up all its time before the second judge was asked. The log gives such a call's `failure` as `timeout`, and keeps `aborted` for a turn you interrupted.
+- The log has one line for every `ask` the plugin is shown in auto mode, another plugin's query about a call not yet made included, each with the tool's input: the `owned`, `reserved`, `background`, `network`, and `repeated` lines gain `input`, and a call left to the classifier after its output was redacted or withheld is logged as `rerun`, where it left no line. `denied` is logged for any call the plugin left to auto mode, not only one the judge reviewed. A `withheld` line gives in `error` the failure's own message when reading, rewriting, or scanning failed, and a `judged` line gives in `messages` how many of your kept messages the judge read and how many the store had let go.
+- A call whose input passes 100,000 characters is judged like any other; none was met in use, and the limit only kept such a call from the judge.
+
 ## 0.0.11 - 2026-10-29
 
 - A withheld output's reason, which the agent reads and the log records in `reason`, tells apart a credential-shaped value in the full output a large result leaves in a file, in a note a hook added beside the result, and in the text the agent reads but not in the tool's result. All three gave the same reason before.

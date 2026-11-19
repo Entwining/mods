@@ -58,10 +58,11 @@ describe('tool.check', () => {
     expect(await check($, 'Bash', dev)).toEqual(w.core);
     expect(w.modelCalls).toHaveLength(0);
     const [line] = await w.logged(1);
-    expect([line!.event, line!.tool, line!.coreReason]).toEqual([
+    expect([line!.event, line!.tool, line!.coreReason, line!.input]).toEqual([
       'background',
       'Bash',
       'synthetic core reason',
+      JSON.stringify(dev),
     ]);
   });
 

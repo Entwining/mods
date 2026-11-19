@@ -48,8 +48,7 @@ async function judgeOn(
 }
 
 // A call the first stage did not allow, failures included, is judged again from
-// the start by the second, whose verdict is final; one too long to ask the
-// first about is too long for the second. Each stage has the judge's whole
+// the start by the second, whose verdict is final. Each stage has the judge's whole
 // time limit, since one shared would leave none to judge a call the first
 // stage ran out of time on.
 export async function judgeCall(
@@ -58,11 +57,6 @@ export async function judgeCall(
   call: JudgeCase & { cwd: string },
 ): Promise<Judged & { escalation?: Judged }> {
   const judged = await judgeOn($, settings, call);
-  if (
-    judged.verdict === 'allow' ||
-    judged.isAnswered === undefined ||
-    settings.escalation === undefined
-  )
-    return judged;
+  if (judged.verdict === 'allow' || settings.escalation === undefined) return judged;
   return { ...judged, escalation: await judgeOn($, settings.escalation, call) };
 }

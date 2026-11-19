@@ -51,6 +51,8 @@ export type World = {
   writeGate: (() => Promise<void>) | undefined;
   // How many log writes still to refuse, as a full disk would.
   failWrites: number;
+  // Files that refuse a write.
+  readOnly: Set<string>;
   // Resolves once the session's log, or the part at `path`, holds `count` lines.
   logged: (count: number, path?: string) => Promise<Array<Record<string, unknown>>>;
 };
@@ -109,6 +111,7 @@ export function world(on: On, partial: Partial<World> = {}): World {
     storeLimit: 4 * 1024 * 1024,
     writeGate: undefined,
     failWrites: 0,
+    readOnly: new Set(),
     logged: (count, path = LOG) =>
       new Promise((resolve) =>
         lines(path).length >= count ? resolve(lines(path)) : waiters.push([count, path, resolve]),
@@ -178,6 +181,7 @@ export function world(on: On, partial: Partial<World> = {}): World {
       ({ value: { kind: 'file', size: (w.files.get(e.path) ?? '').length, mtimeMs: 0 } }) as never,
   );
   on('fs.write', async (_$, e) => {
+    if (w.readOnly.has(e.path)) throw new Error(`read-only file: ${e.path}`);
     if (w.failWrites > 0 && w.failWrites--) throw new Error('disk full');
     w.files.set(e.path, e.text);
     for (const waiter of waiters.filter(([count, path]) => lines(path).length >= count)) {

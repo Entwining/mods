@@ -37,9 +37,14 @@ describe('output', () => {
       event: 'redacted',
       tool_use_id: 't1',
       kinds: ['API key', 'secret assignment'],
+      inSavedOutput: false,
     });
     expect(JSON.stringify([result, lines])).not.toContain(FAKE_TOKEN);
     expect((await check($, 'Bash', bash('cat config.json'))).decision).toBe('ask');
+    expect((await w.logged(3))[2]).toMatchObject({
+      event: 'rerun',
+      input: JSON.stringify(bash('cat config.json')),
+    });
     expect((await check($, 'Bash', bash('cat other.json'))).decision).toBe('allow');
 
     // A failed call's text is all the model reads of it.
@@ -151,22 +156,11 @@ describe('output', () => {
     expect(result.result).toEqual({ password: marker, copy: marker, [marker]: 'name' });
   });
 
-  test("output the model would read later, from a file, from a hook's own result, or beside it is scanned, and redacted or withheld", async ($, on) => {
-    const w = world(on, {
-      output: 'Output too large, saved to /out/t1.txt',
-      record: { stdout: '', persistedOutputPath: '/out/t1.txt' },
-    });
+  test("output the model would read from a hook's own result or beside it is scanned, and redacted or withheld", async ($, on) => {
+    const w = world(on);
     await auto($);
     const call = (command: string, id: string) =>
       $.tool.call({ tool: 'Bash', command, tool_use_id: id } as never);
-    w.files.set('/out/t1.txt', `line\nTOKEN=${FAKE_TOKEN}\n`);
-    expect((await call('cat a.log', 't1')).deny).toMatch(
-      /^preallow: its full output in a file holds .*API key/,
-    );
-    w.files.set('/out/t1.txt', 'line\n'.repeat(3));
-    expect((await call('cat b.log', 't2')).text).toBe('Output too large, saved to /out/t1.txt');
-    w.files.delete('/out/t1.txt');
-    expect((await call('cat c.log', 't3')).deny).toContain('could not be read');
     w.output = undefined;
     w.record = { stdout: `TOKEN=${FAKE_TOKEN}` };
     expect((await call('cat e.log', 't5')).result).toEqual({

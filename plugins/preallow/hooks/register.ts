@@ -5,7 +5,7 @@ import type { Modes } from '../types';
 import { judgeCase, judgePrompt } from './judge.ts';
 import { judgeCall, type JudgeSettings } from './stages.ts';
 import { loggedInput, record } from './log.ts';
-import { rerunWarning, screen, WITHHELD } from './withhold.ts';
+import { rerunWarning, screen, WITHHELD } from './screen.ts';
 import { ANSWER_PREFIX, remember } from './messages.ts';
 
 const modesRef = atom({ plugin: 'preallow', key: 'modes' } as const, {} as Modes);
@@ -59,12 +59,13 @@ export const register: Register = (on, options) => {
   // Calls the plugin allowed, by tool_use_id, so their output is scanned
   // before the model reads it; calls left to the core when they run again,
   // after their output was redacted or withheld or the engine rejected the
-  // plugin's allow; the calls the judge left to review, by tool_use_id, with
-  // a digest of the judge's first prompt, so a denial of one is logged; and
-  // the digests of those auto mode denied.
+  // plugin's allow; the asks the plugin left to their decider, by
+  // tool_use_id, so a denial of one is logged, each the judge reviewed with a
+  // digest of the judge's first prompt; and the digests of those auto mode
+  // denied.
   const allowedCalls = new Map<string, string>();
   const coreCalls = new Set<string>();
-  const reviewCalls = new Map<string, string>();
+  const leftCalls = new Map<string, string | undefined>();
   const deniedCalls = new Set<string>();
 
   // Subagents can run under a mode of their own, and the user can switch
@@ -87,10 +88,10 @@ export const register: Register = (on, options) => {
   // The engine raises this only for auto mode's denials, including those made
   // without a classifier verdict.
   on('classic.PermissionDenied', async ($, e, next) => {
-    const promptDigest = reviewCalls.get(e.tool_use_id);
-    if (promptDigest !== undefined) {
-      reviewCalls.delete(e.tool_use_id);
-      deniedCalls.add(promptDigest);
+    if (leftCalls.has(e.tool_use_id)) {
+      const promptDigest = leftCalls.get(e.tool_use_id);
+      leftCalls.delete(e.tool_use_id);
+      if (promptDigest !== undefined) deniedCalls.add(promptDigest);
       record($, { event: 'denied', tool_use_id: e.tool_use_id, reason: e.reason.slice(0, 300) });
     }
     return next(e);
@@ -115,13 +116,24 @@ export const register: Register = (on, options) => {
     if (core.decision !== 'ask') return core;
     if ((await read($, modesRef))[e.agentId ?? 'main'] !== 'auto') return core;
 
+    // Every ask the plugin is shown in auto mode ends in one line, with the
+    // same fields whichever way it went, and leaves by `leave` or with the
+    // judge's allow. A query, which a plugin makes of a call not yet made,
+    // carries no id.
     const id = e.tool_use_id;
-    const log = (event: string, details: Record<string, unknown>) => {
-      if (id !== undefined)
-        record($, { event, tool_use_id: id, agentId: e.agentId, tool: e.tool, ...details });
-    };
-    const leave = (event: string, details: Record<string, unknown> = {}) => {
-      log(event, { ...details, coreReason: core.reason });
+    const log = (event: string, details: Record<string, unknown>) =>
+      record($, {
+        event,
+        tool_use_id: id,
+        agentId: e.agentId,
+        tool: e.tool,
+        input: loggedInput(e.input),
+        coreReason: core.reason,
+        ...details,
+      });
+    const leave = (event: string, details: Record<string, unknown> = {}, promptDigest?: string) => {
+      log(event, details);
+      if (id !== undefined) leftCalls.set(id, promptDigest);
       return core;
     };
 
@@ -147,7 +159,7 @@ export const register: Register = (on, options) => {
       return leave('background');
 
     const key = `${e.tool} ${JSON.stringify(e.input)}`;
-    if (coreCalls.has(key)) return core;
+    if (coreCalls.has(key)) return leave('rerun');
     const call = await judgeCase($, e.tool, e.input, e.agentId);
     // The judge's first prompt holds the call with the user's words, so a
     // call auto mode denied comes back the same until the user speaks again;
@@ -164,15 +176,15 @@ export const register: Register = (on, options) => {
     const promptDigest = btoa(String.fromCharCode(...new Uint8Array(hash)));
     if (deniedCalls.has(promptDigest)) return leave('repeated');
     const judged = await judgeCall($, settings, call);
-    log('judged', { input: loggedInput(e.input), coreReason: core.reason, ...judged });
+    const details = {
+      messages: { kept: call.messages.turns.length, leftOut: call.messages.leftOut },
+      ...judged,
+    };
     const verdict = judged.escalation ?? judged;
+    if (verdict.verdict !== 'allow') return leave('judged', details, promptDigest);
 
-    if (id !== undefined) {
-      if (verdict.verdict === 'allow') allowedCalls.set(id, key);
-      else reviewCalls.set(id, promptDigest);
-    }
-
-    if (verdict.verdict !== 'allow') return core;
+    log('judged', details);
+    if (id !== undefined) allowedCalls.set(id, key);
     return { decision: 'allow', reason: `preallow: ${verdict.reason}` };
   });
 
@@ -200,8 +212,6 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const result = await next(e);
     const id = e.tool_use_id;
-    if (reviewCalls.delete(id)) return result;
-
     const key = allowedCalls.get(id);
     if (key === undefined) return result;
     if (result.isError === true && result.text?.startsWith(ENGINE_REJECTION) === true) {
@@ -220,14 +230,24 @@ export const register: Register = (on, options) => {
     }
     coreCalls.add(key);
     if ('redacted' in screened) {
-      record($, { event: 'redacted', tool_use_id: id, kinds: screened.kinds });
+      record($, {
+        event: 'redacted',
+        tool_use_id: id,
+        kinds: screened.kinds,
+        inSavedOutput: screened.inSavedOutput,
+      });
       // A redacted result stays listed: the engine skips a hook whose answer
       // it refuses and lets the unredacted result stand, unless `.catch`
       // withholds it.
       return screened.redacted;
     }
     allowedCalls.delete(id);
-    record($, { event: 'withheld', tool_use_id: id, reason: screened.withheld });
+    record($, {
+      event: 'withheld',
+      tool_use_id: id,
+      reason: screened.withheld,
+      error: screened.error?.slice(0, 300),
+    });
     // After a call that answered without error the engine already tells the
     // model that it ran and a plugin withheld its result.
     const prefix = result.isError === true ? WITHHELD : 'preallow:';
@@ -243,6 +263,7 @@ export const register: Register = (on, options) => {
       event: 'withheld',
       tool_use_id: e.tool_use_id,
       reason: 'scanning or redacting it failed',
+      error: `${next.error.kind}: ${next.error.message ?? ''}`.slice(0, 300),
     });
     // In a catch handler, next replays the settled result without running the tool again.
     const warning = rerunWarning((await next(e)).result);

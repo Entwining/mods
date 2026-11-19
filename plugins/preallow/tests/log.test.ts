@@ -1,14 +1,15 @@
 import { describe, expect, test } from 'claude-code/testing';
 
-import { auto, bash, check } from './session.ts';
+import { auto, bash, check, say } from './session.ts';
 import { ENGINE_VERSION, LOG, REJECTION, REVIEW, usageOf, world } from './world.ts';
 
 const LOG_PART_1 = '/home/u/.claude/preallow/s1.1.jsonl';
 
 describe('the log', () => {
-  test('each decision is logged with its verdict and why the core asked', async ($, on) => {
+  test("each decision is logged with its verdict, why the core asked, and how many of the user's messages the judge read", async ($, on) => {
     const w = world(on, { core: { decision: 'ask', reason: 'synthetic core reason' } });
     await auto($);
+    await say($, 'set up the build');
     await check($, 'Bash', bash('make setup'));
     const [line] = await w.logged(1);
     expect([
@@ -17,6 +18,7 @@ describe('the log', () => {
       line!.verdict,
       line!.input,
       line!.coreReason,
+      line!.messages,
       line!.engine,
     ]).toEqual([
       'judged',
@@ -24,8 +26,13 @@ describe('the log', () => {
       'allow',
       '{"command":"make setup"}',
       'synthetic core reason',
+      { kept: 1, leftOut: 0 },
       ENGINE_VERSION,
     ]);
+
+    // A plugin's query about a call not yet made carries no id.
+    await check($, 'Bash', bash('make setup'), { tool_use_id: undefined });
+    expect((await w.logged(2))[1]).toMatchObject({ event: 'judged', verdict: 'allow' });
   });
 
   test('a judged line carries what each judge call cost and the settings it ran on', async ($, on) => {
@@ -43,7 +50,7 @@ describe('the log', () => {
     ]);
   });
 
-  test('a call the judge left to review and auto mode denied is logged as denied, and a denied call it never judged is not', async ($, on) => {
+  test('a call the plugin left to the classifier, judged or not, that auto mode denied is logged as denied, and a denied call it was never shown is not', async ($, on) => {
     const w = world(on, { reply: REVIEW });
     await auto($);
     const denied = async (id: string, input: Record<string, unknown> = bash('make')) => {
@@ -64,12 +71,21 @@ describe('the log', () => {
     ]);
     expect(lines[1]!.reason).toContain('[Synthetic]');
 
-    // Denied without the judge, then a later call judged and denied.
+    // Denied without the judge, then one denied in a loop outside auto mode,
+    // which the plugin is not shown, then a later call judged and denied.
     await denied('t2', { command: 'make', run_in_background: true });
+    await check($, 'Bash', bash('make'), { tool_use_id: 't9', agentId: 'a1' });
+    await $.classic.PermissionDenied({
+      tool_name: 'Bash',
+      tool_input: bash('make'),
+      tool_use_id: 't9',
+      reason: '[Synthetic]',
+    });
     await denied('t3', bash('make test'));
-    const later = await w.logged(5);
+    const later = await w.logged(6);
     expect(later.slice(2).map((line) => [line.event, line.tool_use_id])).toEqual([
       ['background', 't2'],
+      ['denied', 't2'],
       ['judged', 't3'],
       ['denied', 't3'],
     ]);

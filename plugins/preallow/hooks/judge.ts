@@ -33,10 +33,10 @@ export type JudgeCase = {
 export type Verdict = {
   verdict: 'allow' | 'review';
   reason: string;
-  // Whether the model answered, absent when the judge was not asked and false
-  // when its time ran out before the call after a check; when it did not
-  // answer, why; and the failures retried before it.
-  isAnswered?: boolean;
+  // Whether the model answered, false too when the judge's time ran out
+  // before the call after a check; when it did not answer, why; and the
+  // failures retried before it.
+  isAnswered: boolean;
   failure?: string;
   retried?: string[];
   // What the judge asked to check, and what it was told.
@@ -58,13 +58,14 @@ export type JudgeHost = {
   sleep: (ms: number) => Promise<void>;
 };
 
-// The call runs with its whole input, so the judge reads all of it; an input
-// longer than this goes to the classifier unjudged.
-const INPUT_CHARS = 100_000;
 const BRIEF_CHARS = 8000;
 // A judge that has not answered by then, retries included, answers review,
 // which the second stage, if there is one, judges again.
 const JUDGE_TIMEOUT_MS = 90_000;
+// A model call that has not answered by then has stalled: one made right
+// after it answers in seconds, so it is cut here and made again instead of
+// holding the tool call for the judge's whole time.
+const CALL_TIMEOUT_MS = 45_000;
 // Empty replies come between replies to prompts of the same size seconds
 // apart, so a call made again shortly after usually gets one. The wait, unlike
 // a model call, counts against the hook's own ten-second budget: a stage waits
@@ -103,8 +104,10 @@ export function judgePrompt(call: JudgeCase): ModelTextBlock[] {
 type Run = { deadline: number; usage: ModelUsage[]; retried: string[] };
 
 // The model's reply, or why it gave none. A call that failed in a way a later
-// call can get past is made once more while the judge's time lasts; one cut
-// short, by the time limit or the person, or refused for what it asked is not.
+// call can get past, or ran out its own time, is made once more while the
+// judge's time lasts; one the person cut short or refused for what it asked
+// is not. The engine reports a call cut by its time limit and one cut by the
+// person the same way, so the time it took tells them apart.
 async function ask(
   host: JudgeHost,
   call: JudgeCase,
@@ -112,8 +115,9 @@ async function ask(
 ): Promise<Reply | { failure: string }> {
   const prompt = judgePrompt(call);
   for (let retry = false; ; retry = true) {
-    const timeoutMs = run.deadline - (await host.now());
-    if (timeoutMs <= 0) return { failure: 'aborted' };
+    const startedAt = await host.now();
+    const timeoutMs = Math.min(run.deadline - startedAt, CALL_TIMEOUT_MS);
+    if (timeoutMs <= 0) return { failure: 'timeout' };
     let result: ModelCompleteResult;
     try {
       result = await host.complete({
@@ -128,11 +132,15 @@ async function ask(
     run.usage.push(result.usage);
     if (result.isAnswered) return parseVerdict(result.text);
 
+    const timedOut = result.reason === 'aborted' && (await host.now()) - startedAt >= timeoutMs;
     const failure =
       result.reason === 'api-error'
         ? `api-error ${result.error} (${result.status})`
-        : result.reason;
+        : timedOut
+          ? 'timeout'
+          : result.reason;
     const retryable =
+      timedOut ||
       result.reason === 'empty-reply' ||
       (result.reason === 'api-error' && TRANSIENT.has(result.error));
     if (retry || !retryable || (await host.now()) + RETRY_DELAY_MS >= run.deadline)
@@ -145,14 +153,6 @@ async function ask(
 // One round of checks at most: the judge decides with the facts it asked
 // for, and answers review when they cannot be read or still leave it unsure.
 export async function judge(call: JudgeCase, host: JudgeHost): Promise<Verdict> {
-  const inputChars = (JSON.stringify(call.input) ?? '').length;
-  if (inputChars > INPUT_CHARS)
-    return {
-      verdict: 'review',
-      reason: `input of ${inputChars} characters, too long to judge`,
-      usage: [],
-    };
-
   const run: Run = { deadline: (await host.now()) + JUDGE_TIMEOUT_MS, usage: [], retried: [] };
   const spent = () => ({
     usage: run.usage,

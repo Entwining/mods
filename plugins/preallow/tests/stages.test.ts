@@ -58,18 +58,6 @@ describe('the judge stages', () => {
     ]);
   });
 
-  test('a call too long to ask the first stage about is not passed to the second', async ($, on) => {
-    const w = world(on, {});
-    await auto($);
-    const input = { file_path: '/w/a', content: 'x'.repeat(100_001) };
-    expect((await check($, 'Write', input)).decision).toBe('ask');
-    const [line] = await w.logged(1);
-    expect([line!.reason, line!.escalation]).toEqual([
-      expect.stringMatching(/too long/),
-      undefined,
-    ]);
-  });
-
   test(
     'a judge model the user set has no second stage, whatever escalation effort is set',
     { options: { model: 'some-model-id', escalation_effort: 'some-effort' } },

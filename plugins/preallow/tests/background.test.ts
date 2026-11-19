@@ -69,6 +69,7 @@ describe('background handoff', () => {
       expect((await w.logged(2))[1]).toMatchObject({
         event: 'withheld',
         reason: 'scanning or redacting it failed',
+        error: expect.stringMatching(/^throw: .*BigInt/),
       });
       expect((await check($, 'Bash', bash('run stage'))).decision).toBe('ask');
     });
